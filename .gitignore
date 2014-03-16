@@ -1,0 +1,10 @@
+*.pyc
+*.pyo
+*.db
+*.sqlite3
+.DS_Store
+.idea/
+schema-custom.json
+npm-debug.log
+node_modules
+env/
