@@ -21,7 +21,9 @@ def format_short_datetime(v):
 
 @register.filter(name='userpage', is_safe=True)
 def userpage_link(user):
-    return '<span class="user">Anonymous</span>'
+    if user is None or user.is_anonymous():
+        return '<span class="user">Anonymous</span>'
+    return '<span class="user email">%s</span>' % user.email
 
 @register.filter(name='to_rel_path')
 def to_rel_path(title):

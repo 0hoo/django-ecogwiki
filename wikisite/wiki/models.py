@@ -85,7 +85,7 @@ class WikiPage(models.Model, PageOperationMixin):
     body = models.TextField()
     description = models.CharField(max_length=255)
     comment = models.CharField(max_length=999)
-    #modifier = ndb.UserProperty()
+    modifier = models.ForeignKey(User, null=True, blank=True)
     acl_read = models.CharField(max_length=255)
     acl_write = models.CharField(max_length=255)
     revision = models.IntegerField()
@@ -199,7 +199,8 @@ class WikiPage(models.Model, PageOperationMixin):
 
         # update model and save
         self.body = new_body
-        #self.modifier = user
+        if user and not user.is_anonymous():
+            self.modifier = user
         self.description = PageOperationMixin.make_description(new_body)
         self.acl_read = new_md.get('read', '')
         self.acl_write = new_md.get('write', '')
@@ -216,7 +217,7 @@ class WikiPage(models.Model, PageOperationMixin):
         if not dont_create_rev:
             rev = WikiPageRevision(page=self, title=self.title, body=self.body,
                                    created_at=self.updated_at, revision=self.revision,
-                                   comment=self.comment)
+                                   comment=self.comment, modifier=self.modifier)
             rev.save()
 
         self.update_links_and_data(old_md.get('redirect'), new_md.get('redirect'), old_data, new_data)
@@ -607,9 +608,9 @@ class WikiPageRevision(models.Model, PageOperationMixin):
     revision = models.IntegerField()
     comment = models.CharField(max_length=999)
     page = models.ForeignKey(WikiPage, related_name='revisions')
-    #modifier = ndb.UserProperty()
-    #acl_read = ndb.StringProperty()
-    #acl_write = ndb.StringProperty()
+    modifier = models.ForeignKey(User, null=True, blank=True)
+    acl_read = models.CharField(max_length=255)
+    acl_write = models.CharField(max_length=255)
     created_at = models.DateTimeField()
 
     def __str__(self):

@@ -144,7 +144,7 @@ class PageResource(PageLikeResource):
             pass
 
         try:
-            page.update_content(new_body, revision, comment, self.user, partial=partial)
+            page.update_content(new_body, revision, comment, self.req.user, partial=partial)
             self.res['X-Message'] = 'Successfully updated.'
 
             if partial == 'all':
@@ -162,7 +162,7 @@ class PageResource(PageLikeResource):
 
             return self.res
         except ValueError as e:
-            pass
+            print e
 
     def delete(self):
         page = self.load()
