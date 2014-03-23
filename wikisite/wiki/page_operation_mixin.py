@@ -46,7 +46,22 @@ class PageOperationMixin(object):
                                          ur'December)( (?P<date>[0123]?\d))?)$')
 
     def __init__(self):
-        pass
+        self.cur_user = None
+
+    def set_cur_user(self, user):
+        self.cur_user = user
+
+    @property
+    def modifier_type(self):
+        if self.modifier is None:
+            return 'anonymous'
+
+        if self.cur_user is None:
+            return 'other'
+        elif self.cur_user.email == self.modifier.email:
+            return 'self'
+        else:
+            return 'other'
 
     @property
     def hashbangs(self):

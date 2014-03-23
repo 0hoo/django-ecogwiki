@@ -7,6 +7,16 @@ from ..utils import title_grouper
 
 
 class PageUpdateTest(WikiTestCase):
+    def test_should_update_acls(self):
+        self.login('ak', 'ak')
+        page = self.update_page(u'.read test1\n.write test2, test3\nHello')
+        self.assertEqual(u'test1', page.acl_read)
+        self.assertEqual(u'test2, test3', page.acl_write)
+
+        page = self.update_page(u'Hello')
+        self.assertEqual(u'', page.acl_read)
+        self.assertEqual(u'', page.acl_write)
+
     def test_should_create_revision(self):
         page = WikiPage.get_by_title(u'Hello')
         page.update_content(u'Hello', 0, user=self.get_cur_user())
@@ -553,11 +563,12 @@ class TitleGroupingTest(WikiTestCase):
 class PageOperationMixinTest(WikiTestCase):
     def setUp(self):
         super(PageOperationMixinTest, self).setUp()
+        self.login('0hoo', '0hoo')
 
-        self.update_page(u'.pub X\nHello [[There]]', u'Hello')
+        self.page = self.update_page(u'.pub X\nHello [[There]]', u'Hello')
         self.update_page(u'[[Hello]]', u'Other')
 
-        self.page = WikiPage.get_by_title(u'Hello')
+        # self.page = WikiPage.get_by_title(u'Hello')
         self.revision = self.page.revisions.first()
 
     def test_rendered_body(self):
@@ -609,15 +620,15 @@ class PageOperationMixinTest(WikiTestCase):
         self.assertEqual(u'http://schema.org/Article', self.page.itemtype_url)
         self.assertEqual(u'http://schema.org/Article', self.revision.itemtype_url)
 
-    # def test_modifier_type(self):
-    #     self.login('ak@gmail.com', 'ak')
-    #     self.assertEqual(u'self', self.page.modifier_type)
-    #
-    #     self.login('other@gmail.com', 'other')
-    #     self.assertEqual(u'other', self.page.modifier_type)
-    #
-    #     self.page.modifier = None
-    #     self.assertEqual(u'anonymous', self.page.modifier_type)
+    def test_modifier_type(self):
+        self.login('0hoo', '0hoo')
+        self.assertEqual(u'self', self.page.modifier_type)
+
+        self.login('other', 'other')
+        self.assertEqual(u'other', self.page.modifier_type)
+
+        self.page.modifier = None
+        self.assertEqual(u'anonymous', self.page.modifier_type)
 
 
 # class UserPreferencesTest(WikiTestCase):

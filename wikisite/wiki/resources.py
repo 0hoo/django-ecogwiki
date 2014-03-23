@@ -112,7 +112,8 @@ class PageLikeResource(Resource):
 
 class PageResource(PageLikeResource):
     def load(self):
-        return WikiPage.get_by_path(self.path)
+        page = WikiPage.get_by_path(self.path)
+        return page
 
     def get(self, head):
         page = self.load()
