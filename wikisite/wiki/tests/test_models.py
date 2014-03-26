@@ -563,9 +563,10 @@ class PageOperationMixinTest(WikiTestCase):
     def setUp(self):
         super(PageOperationMixinTest, self).setUp()
 
-        self.page = self.update_page(u'.pub X\nHello [[There]]', u'Hello')
+        self.update_page(u'.pub X\nHello [[There]]', u'Hello')
         self.update_page(u'[[Hello]]', u'Other')
 
+        self.page = WikiPage.get_by_title(u'Hello')
         self.revision = self.page.revisions.first()
 
     def test_rendered_body(self):
