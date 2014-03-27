@@ -428,15 +428,14 @@ class LinkTest(WikiTestCase):
         self.assertEqual({}, page.outlinks)
 
     def test_do_not_display_restricted_links(self):
-        pass
-        # a = self.update_page(u'.read ak@gmail.com\n[[B]]', u'A')
-        # self.assertEqual({}, a.inlinks)
-        # self.assertEqual({u'Article/relatedTo': [u'B']}, a.outlinks)
-        #
-        # b = WikiPage.get_by_title(u'B')
-        # self.assertEqual(None, b.updated_at)
-        # self.assertEqual({}, b.inlinks)
-        # self.assertEqual({}, b.outlinks)
+        a = self.update_page(u'.read ak@gmail.com\n[[B]]', u'A')
+        self.assertEqual({}, a.inlinks)
+        self.assertEqual({u'Article/relatedTo': [u'B']}, a.outlinks)
+
+        b = WikiPage.get_by_title(u'B')
+        self.assertEqual(None, b.updated_at)
+        self.assertEqual({}, b.inlinks)
+        self.assertEqual({}, b.outlinks)
 
     def test_get_outlinks(self):
         page = self.update_page(u'[[A]], [[A]], [[Hello World]]')
@@ -607,7 +606,7 @@ class PageOperationMixinTest(WikiTestCase):
         self.assertEqual(True, self.revision.can_read(None))
 
     def test_can_write(self):
-        #self.assertEqual(False, self.page.can_write(None))
+        self.assertEqual(False, self.page.can_write(None))
         self.assertEqual(False, self.revision.can_write(None))
 
     def test_itemtype(self):

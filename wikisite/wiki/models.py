@@ -164,17 +164,34 @@ class WikiPage(models.Model, PageOperationMixin):
 
         return page
 
-    def can_read(self, user):
-        return True
 
+    @classmethod
+    def get_default_permission(cls):
+        return {
+            'read': ['all'],
+            'write': ['login'],
+        }
+
+    @property
+    def user_can_write(self):
+        if self.cur_user and self.cur_user.is_anonymous():
+            return self.can_write(None)
+        else:
+            return self.can_write(self.cur_user)
+
+    def can_write(self, user, default_acl=None, acl_r=None, acl_w=None):
+        if default_acl is None:
+            default_acl = WikiPage.get_default_permission()
+        return super(WikiPage, self).can_write(user, default_acl, acl_r, acl_w)
+
+    def can_read(self, user, default_acl=None, acl_r=None, acl_w=None):
+        if default_acl is None:
+            default_acl = WikiPage.get_default_permission()
+        return super(WikiPage, self).can_read(user, default_acl, acl_r, acl_w)
 
     @property
     def rendered_body(self):
         return super(WikiPage, self).rendered_body
-
-    @property
-    def can_write(self):
-        return True
 
     def update_content(self, content, base_revision, comment='', user=None, force_update=False, dont_create_rev=False,
                        partial='all'):
@@ -238,21 +255,21 @@ class WikiPage(models.Model, PageOperationMixin):
         new_outlinks = {}
         for rel, titles in self._parse_outlinks().items():
             new_outlinks[rel] = list({WikiPage.get_by_title(t, follow_redirect=True).title for t in titles})
-        # if self.acl_read:
-        #     # delete all inlinks of target pages if the source page has a read restriction
-        #     added_outlinks = {}
-        #     removed_outlinks = cur_outlinks
-        # else:
-        added_outlinks = {}
-        for rel, titles in new_outlinks.items():
-            added_outlinks[rel] = titles
-            if rel in cur_outlinks:
-                added_outlinks[rel] = set(added_outlinks[rel]).difference(cur_outlinks[rel])
-        removed_outlinks = {}
-        for rel, titles in cur_outlinks.items():
-            removed_outlinks[rel] = titles
-            if rel in new_outlinks:
-                removed_outlinks[rel] = set(removed_outlinks[rel]).difference(new_outlinks[rel])
+        if self.acl_read:
+            # delete all inlinks of target pages if the source page has a read restriction
+            added_outlinks = {}
+            removed_outlinks = cur_outlinks
+        else:
+            added_outlinks = {}
+            for rel, titles in new_outlinks.items():
+                added_outlinks[rel] = titles
+                if rel in cur_outlinks:
+                    added_outlinks[rel] = set(added_outlinks[rel]).difference(cur_outlinks[rel])
+            removed_outlinks = {}
+            for rel, titles in cur_outlinks.items():
+                removed_outlinks[rel] = titles
+                if rel in new_outlinks:
+                    removed_outlinks[rel] = set(removed_outlinks[rel]).difference(new_outlinks[rel])
 
         self._update_inlinks(added_outlinks, removed_outlinks)
 
@@ -424,10 +441,10 @@ class WikiPage(models.Model, PageOperationMixin):
         acl_w = new_md.get('write', '')
         acl_w = acl_w.split(',') if acl_w else []
 
-        # if not self.can_read(user, acl_r=acl_r, acl_w=acl_w):
-        #     raise ValueError('Cannot restrict your permission')
-        # if not self.can_write(user, acl_r=acl_r, acl_w=acl_w):
-        #     raise ValueError('Cannot restrict your permission')
+        if not self.can_read(user, acl_r=acl_r, acl_w=acl_w):
+            raise ValueError('Cannot restrict your permission')
+        if not self.can_write(user, acl_r=acl_r, acl_w=acl_w):
+            raise ValueError('Cannot restrict your permission')
 
         # prevent circular-redirection
         try:

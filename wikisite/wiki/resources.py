@@ -113,6 +113,7 @@ class PageLikeResource(Resource):
 class PageResource(PageLikeResource):
     def load(self):
         page = WikiPage.get_by_path(self.path)
+        page.set_cur_user(self.req.user)
         return page
 
     def get(self, head):

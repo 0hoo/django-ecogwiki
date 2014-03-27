@@ -392,7 +392,34 @@ class PageOperationMixin(object):
         return 'http://schema.org/%s' % self.itemtype
 
     def can_read(self, user, default_acl=None, acl_r=None, acl_w=None):
-        return True
+        default_acl = default_acl or {'read': ['all'], 'write': ['login'] }
+        acl_r = acl_r or self.acl_read or default_acl['read'] or []
+        acl_w = acl_w or self.acl_write or default_acl['write'] or []
+
+        if u'all' in acl_r or len(acl_r) == 0:
+            return True
+        elif user is not None and u'login' in acl_r:
+            return True
+        elif user is not None and (user.email in acl_r or user.email in acl_w):
+            return True
+        elif user and user.is_superuser:
+            return True
+        else:
+            return False
 
     def can_write(self, user, default_acl=None, acl_r=None, acl_w=None):
-        return False
+        default_acl = default_acl or {'read': ['all'], 'write': ['login'] }
+        acl_w = acl_w or self.acl_write or default_acl['write'] or []
+
+        if (not self.can_read(user, default_acl, acl_r, acl_w)) and (user is None or user.email not in acl_w):
+            return False
+        elif 'all' in acl_w:
+            return True
+        elif (len(acl_w) == 0 or u'login' in acl_w) and user is not None:
+            return True
+        elif user is not None and user.email in acl_w:
+            return True
+        elif user and user.is_superuser:
+            return True
+        else:
+            return False
