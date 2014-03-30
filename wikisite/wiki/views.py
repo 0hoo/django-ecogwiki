@@ -1,4 +1,14 @@
 from resources import RedirectResource, PageResource
+from registration.backends.simple.views import RegistrationView
+from registration.forms import RegistrationFormUniqueEmail
+
+
+class WikiRegistrationView(RegistrationView):
+    form_class = RegistrationFormUniqueEmail
+
+    def get_success_url(self, request, user):
+        return '/'
+
 
 def index(request, path, head=False):
     if request.method == 'GET':

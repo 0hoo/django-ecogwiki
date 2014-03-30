@@ -1,0 +1,5 @@
+{% extends "wiki/base.html" %}
+
+{% block body %}
+<p>Logged out. Go <a href="/">Home</a> | <a href="{% url 'django.contrib.auth.views.login' %}">Login</a></p>
+{% endblock %}
