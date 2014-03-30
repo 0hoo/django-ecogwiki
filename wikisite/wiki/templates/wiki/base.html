@@ -113,6 +113,7 @@
     </li>
     <li>
         {% if user.is_authenticated %}
+        <a href="/accounts/info/" class="preferences">Account</a>
         <a href="/sp.preferences" class="preferences">Preferences</a>
         <a href="/accounts/logout/">Logout</a>
         {% else %}

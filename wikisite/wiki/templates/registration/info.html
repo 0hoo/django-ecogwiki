@@ -1,0 +1,9 @@
+{% extends "wiki/base.html" %}
+
+{% block body %}
+<ul>
+    <li>{{ user.username }}</li>
+    <li>{{ user.email }}</li>
+    <li><a href="{% url 'auth_password_reset' %}">Reset Password</a></li>
+</ul>
+{% endblock %}
