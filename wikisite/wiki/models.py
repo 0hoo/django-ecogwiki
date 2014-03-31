@@ -180,11 +180,15 @@ class WikiPage(models.Model, PageOperationMixin):
             return self.can_write(self.cur_user)
 
     def can_write(self, user, default_acl=None, acl_r=None, acl_w=None):
+        if user and user.is_anonymous():
+            user = None
         if default_acl is None:
             default_acl = WikiPage.get_default_permission()
         return super(WikiPage, self).can_write(user, default_acl, acl_r, acl_w)
 
     def can_read(self, user, default_acl=None, acl_r=None, acl_w=None):
+        if user and user.is_anonymous():
+            user = None
         if default_acl is None:
             default_acl = WikiPage.get_default_permission()
         return super(WikiPage, self).can_read(user, default_acl, acl_r, acl_w)

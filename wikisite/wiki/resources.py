@@ -17,7 +17,7 @@ class Resource(object):
         self.res = HttpResponse()
         self.default_restype = default_restype
         self.default_view = default_view
-        
+
     def load(self):
         """Load data related to this resource"""
         return None
