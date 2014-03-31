@@ -3,7 +3,7 @@ import json
 import urllib2
 from models import WikiPage
 from django.http import HttpResponse, HttpResponseRedirect
-from representations import Representation, TemplateRepresentation, EmptyRepresentation
+from representations import Representation, TemplateRepresentation, EmptyRepresentation, template
 from .templatetags.wiki_extras import format_iso_datetime
 
 
@@ -109,6 +109,16 @@ class PageLikeResource(Resource):
         }
         return JsonRepresentation(content)
 
+    def _403(self, page, head=False):
+        self.res.status_code = 403
+        self.res['Content-Type'] = 'text/html; charset=utf-8'
+        html = template(self.req, 'error.html', {
+            'page': page,
+            'description': 'You don\'t have a permission',
+            'errors': [],
+        })
+        self.res.write(html)
+
 
 class PageResource(PageLikeResource):
     def load(self):
@@ -121,7 +131,7 @@ class PageResource(PageLikeResource):
 
         if not page.can_read(self.user):
             self._403(page, head)
-            return
+            return self.res
 
         if get_restype(self.req, 'html') == 'html' and self.req.GET.get('view', self.default_view) == 'default':
             redirect = page.metadata.get('redirect', None)

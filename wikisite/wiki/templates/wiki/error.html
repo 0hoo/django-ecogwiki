@@ -1,0 +1,28 @@
+{% extends "wiki/base.html" %}
+{% block title %}{{ page.title }}{% endblock %}
+
+{% comment %}
+{% block head %}
+    <link rel="canonical" href="http://{{ config.service.domain }}{{ page.absolute_url|e }}"/>
+{% endblock %}
+{% endcomment %}
+
+{% block body %}
+<article>
+    <header>
+        <h1><span>{{ page.title }}</span></h1>
+    </header>
+    <section class="body">
+        <div class="infobox error">
+            <p>{{ description }}:</p>
+            {% if errors %}
+            <ul>
+            {% for error in errors %}
+                <li>{{ error }}</li>
+            {% endfor %}
+            </ul>
+            {% endif %}
+        </div>
+    </section>
+</article>
+{% endblock %}
