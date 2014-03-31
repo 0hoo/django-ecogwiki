@@ -17,8 +17,7 @@ class Resource(object):
         self.res = HttpResponse()
         self.default_restype = default_restype
         self.default_view = default_view
-        self.user = None
-
+        
     def load(self):
         """Load data related to this resource"""
         return None
@@ -129,7 +128,7 @@ class PageResource(PageLikeResource):
     def get(self, head):
         page = self.load()
 
-        if not page.can_read(self.user):
+        if not page.can_read(self.req.user):
             self._403(page, head)
             return self.res
 
