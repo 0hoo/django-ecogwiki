@@ -19,6 +19,26 @@ def get_legacy_spellings():
     return {pname for pname, pdata in props.items() if 'comment' in pdata and pdata['comment'].find('(legacy spelling;') != -1}
 
 
+def get_schema_set():
+    schema_set = caching.get_schema_set()
+    if schema_set is not None:
+        return schema_set
+
+    for s in SCHEMA_TO_LOAD:
+        if type(s) == dict:
+            new_schema = s
+        else:
+            fullpath = os.path.join(os.path.dirname(__file__), s)
+            try:
+                with open(fullpath) as f:
+                    new_schema = json.load(f)
+            except IOError:
+                new_schema = {}
+
+        schema_set = _merge_schema_set(new_schema, schema_set)
+    caching.set_schema_set(schema_set)
+    return schema_set
+
 def get_schema(itemtype):
     item = caching.get_schema(itemtype)
     if item is not None:
@@ -54,27 +74,6 @@ def get_schema(itemtype):
 
     caching.set_schema(itemtype, item)
     return item
-
-
-def get_schema_set():
-    schema_set = caching.get_schema_set()
-    if schema_set is not None:
-        return schema_set
-
-    for s in SCHEMA_TO_LOAD:
-        if type(s) == dict:
-            new_schema = s
-        else:
-            fullpath = os.path.join(os.path.dirname(__file__), s)
-            try:
-                with open(fullpath) as f:
-                    new_schema = json.load(f)
-            except IOError:
-                new_schema = {}
-
-        schema_set = _merge_schema_set(new_schema, schema_set)
-    caching.set_schema_set(schema_set)
-    return schema_set
 
 
 def _merge_schema_set(addon, schema_set):

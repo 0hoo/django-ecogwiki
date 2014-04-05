@@ -164,7 +164,6 @@ class WikiPage(models.Model, PageOperationMixin):
 
         return page
 
-
     @classmethod
     def get_default_permission(cls):
         return {
@@ -195,7 +194,35 @@ class WikiPage(models.Model, PageOperationMixin):
 
     @property
     def rendered_body(self):
-        return super(WikiPage, self).rendered_body
+        value = caching.get_rendered_body(self.title)
+        if value is None:
+            value = super(WikiPage, self).rendered_body
+            caching.set_rendered_body(self.title, value)
+        return value
+
+    @property
+    def data(self):
+        value = caching.get_data(self.title)
+        if value is None:
+            value = super(WikiPage, self).data
+            caching.set_data(self.title, value)
+        return value
+
+    @property
+    def metadata(self):
+        value = caching.get_metadata(self.title)
+        if value is None:
+            value = super(WikiPage, self).metadata
+            caching.set_metadata(self.title, value)
+        return value
+
+    @property
+    def hashbangs(self):
+        value = caching.get_hashbangs(self.title)
+        if value is None:
+            value = super(WikiPage, self).hashbangs
+            caching.set_hashbangs(self.title, value)
+        return value
 
     def update_content(self, content, base_revision, comment='', user=None, force_update=False, dont_create_rev=False,
                        partial='all'):
@@ -217,6 +244,12 @@ class WikiPage(models.Model, PageOperationMixin):
         # get old data and metadata
         old_md = self.metadata.copy()
         old_data = self.data.copy()
+
+        # delete caches
+        caching.del_rendered_body(self.title)
+        caching.del_hashbangs(self.title)
+        caching.del_metadata(self.title)
+        caching.del_data(self.title)
 
         # update model and save
         self.body = new_body
@@ -242,6 +275,14 @@ class WikiPage(models.Model, PageOperationMixin):
             rev.save()
 
         self.update_links_and_data(old_md.get('redirect'), new_md.get('redirect'), old_data, new_data)
+
+        # delete config cache
+        #if self.title == '.config':
+        #    caching.del_config()
+
+        # delete title cache if it's a new page
+        if self.revision == 1:
+            caching.del_titles()
 
         return True
 
@@ -283,21 +324,40 @@ class WikiPage(models.Model, PageOperationMixin):
 
     def _update_inlinks(self, added_outlinks, removed_outlinks):
         # handle added links
+        updates = []
         for rel, titles in added_outlinks.items():
             for title in titles:
                 page = WikiPage.get_by_title(title, follow_redirect=True)
                 page.add_inlink(self.title, rel)
                 page.save()
+                updates.append(page)
+
+        if updates:
+            for page in updates:
+                caching.del_rendered_body(page.title)
+                caching.del_hashbangs(page.title)
 
         # handle removed links
+        updates = []
+        deletes = []
         for rel, titles in removed_outlinks.items():
             for title in titles:
                 page = WikiPage.get_by_title(title, follow_redirect=True)
                 page.del_inlink(self.title, rel)
                 if len(page.inlinks) == 0 and page.revision == 0 and page.key:
-                    page.delete()
+                    deletes.append(page)
                 else:
-                    page.save()
+                    updates.append(page)
+
+        for page in updates + deletes:
+            caching.del_rendered_body(page.title)
+            caching.del_hashbangs(page.title)
+
+        for page in updates:
+            page.save()
+
+        for page in deletes:
+            page.delete()
 
     def _update_redirected_links(self, new_redir, old_redir):
         """Change in/out links of self and related pages according to new redirect metadata"""
@@ -321,6 +381,10 @@ class WikiPage(models.Model, PageOperationMixin):
 
         for p in updates:
             p.save()
+
+        for page in updates:
+            caching.del_rendered_body(page.title)
+            caching.del_hashbangs(page.title)
 
     def get_similar_titles(self, user):
         return WikiPage.similar_titles(WikiPage.get_titles(user), self.title)
@@ -493,9 +557,50 @@ class WikiPage(models.Model, PageOperationMixin):
         self.published_to = title
         self.published_at = datetime.utcnow().replace(tzinfo=utc)
 
+        caching.del_rendered_body(self.title)
+        caching.del_hashbangs(self.title)
+        if self.newer_title:
+            caching.del_rendered_body(self.newer_title)
+            caching.del_hashbangs(self.newer_title)
+        if self.older_title:
+            caching.del_rendered_body(self.older_title)
+            caching.del_hashbangs(self.older_title)
+
     def _unpublish(self, save):
         if self.published_at is None:
             return
+
+        caching.del_rendered_body(self.title)
+        caching.del_hashbangs(self.title)
+        if self.newer_title:
+            caching.del_rendered_body(self.newer_title)
+            caching.del_hashbangs(self.newer_title)
+        if self.older_title:
+            caching.del_rendered_body(self.older_title)
+            caching.del_hashbangs(self.older_title)
+
+        older = WikiPage.get_by_title(self.older_title)
+        newer = WikiPage.get_by_title(self.newer_title)
+
+        if self.older_title is not None and self.newer_title is not None:
+            newer.older_title = self.older_title
+            older.newer_title = self.newer_title
+            newer.put()
+            older.put()
+        elif self.older_title is not None:
+            older.newer_title = None
+            older.put()
+        elif self.newer_title is not None:
+            newer.older_title = None
+            newer.put()
+
+        self.published_at = None
+        self.published_to = None
+        self.older_title = None
+        self.newer_title = None
+
+        if save:
+            self.save()
 
     def _schema_item_to_links(self, name, value):
         if isinstance(value, schema.Property) and value.is_wikilink():
