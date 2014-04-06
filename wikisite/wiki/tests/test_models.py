@@ -8,9 +8,9 @@ from ..utils import title_grouper
 
 class PageUpdateTest(WikiTestCase):
     def test_should_update_acls(self):
-        page = self.update_page(u'.read test1\n.write test2, test3\nHello')
-        self.assertEqual(u'test1', page.acl_read)
-        self.assertEqual(u'test2, test3', page.acl_write)
+        page = self.update_page(u'.read 0hoo@0hoo.com\n.write 0hoo@0hoo.com, test3\nHello')
+        self.assertEqual(u'0hoo@0hoo.com', page.acl_read)
+        self.assertEqual(u'0hoo@0hoo.com, test3', page.acl_write)
 
         page = self.update_page(u'Hello')
         self.assertEqual(u'', page.acl_read)
@@ -428,7 +428,7 @@ class LinkTest(WikiTestCase):
         self.assertEqual({}, page.outlinks)
 
     def test_do_not_display_restricted_links(self):
-        a = self.update_page(u'.read ak@gmail.com\n[[B]]', u'A')
+        a = self.update_page(u'.read 0hoo@0hoo.com\n[[B]]', u'A')
         self.assertEqual({}, a.inlinks)
         self.assertEqual({u'Article/relatedTo': [u'B']}, a.outlinks)
 
