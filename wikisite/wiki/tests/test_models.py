@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from itertools import groupby
+from django.core.cache import cache
 from ..models import WikiPage, PageOperationMixin
 from . import WikiTestCase
 from ..markdownext.md_wikilink import parse_wikilinks
@@ -335,8 +336,8 @@ class SpecialTitlesTest(WikiTestCase):
 
 
 class RedirectionTest(WikiTestCase):
-    def setUp(self):
-        super(RedirectionTest, self).setUp()
+    def tearDown(self):
+        cache.clear()
 
     def test_adding_redirect_should_change_inout_links(self):
         self.update_page(u'[[B]]', u'A')
