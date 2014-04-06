@@ -3,10 +3,7 @@ from django.core.cache import cache
 
 
 def _set_cache(key, value):
-    if type(value) is str:
-        cache.set(key, urllib.quote(value))
-    else:
-        cache.set(key, value)
+    cache.set(key, value)
 
 
 def get_schema_set():
