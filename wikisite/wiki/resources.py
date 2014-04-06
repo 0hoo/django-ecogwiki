@@ -5,7 +5,7 @@ from models import WikiPage
 from django.http import HttpResponse, HttpResponseRedirect
 from representations import Representation, TemplateRepresentation, EmptyRepresentation, template
 from .templatetags.wiki_extras import format_iso_datetime
-
+import caching
 
 def get_restype(req, default):
     return str(req.GET.get('_type', default))
@@ -121,6 +121,8 @@ class PageLikeResource(Resource):
 
 class PageResource(PageLikeResource):
     def load(self):
+        if self.req.user and not self.req.user.is_anonymous():
+            caching.add_recent_email(self.req.user.email)
         page = WikiPage.get_by_path(self.path)
         page.set_cur_user(self.req.user)
         return page

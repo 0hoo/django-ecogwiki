@@ -192,6 +192,23 @@ class WikiPage(models.Model, PageOperationMixin):
             default_acl = WikiPage.get_default_permission()
         return super(WikiPage, self).can_read(user, default_acl, acl_r, acl_w)
 
+    def delete(self, user=None):
+        if not user or user.is_anonymous() or not user.is_superuser:
+            raise RuntimeError('Only admin can delete pages.')
+
+        self.update_content('', self.revision, user=user, dont_create_rev=True)
+        self._update_inlinks({}, {'relatedTo': [p[0] for p in self.paths[:-1]]})
+        self.related_links = {}
+        self.modifier = None
+        self.updated_at = None
+        self.revision = 0
+        self.save()
+
+        for r in self.revisions.all():
+            r.delete()
+
+        caching.del_titles()
+
     @property
     def rendered_body(self):
         value = caching.get_rendered_body(self.title)

@@ -643,26 +643,26 @@ class PageOperationMixinTest(WikiTestCase):
 #         self.assertEquals(u'김경수', UserPreferences.get_by_user(self.user).userpage_title)
 
 
-# class WikiPageDeleteTest(AppEngineTestCase):
-#     def setUp(self):
-#         super(WikiPageDeleteTest, self).setUp()
-#         self.login('a@x.com', 'a')
-#
-#         self.update_page(u'Hello [[B]]', u'A')
-#         self.update_page(u'Hello [[A]]', u'B')
-#
-#         # reload
-#         self.pagea = WikiPage.get_by_title(u'A')
-#         self.pageb = WikiPage.get_by_title(u'B')
-#
-#     def test_deleted(self):
-#         self.login('a@x.com', 'a', is_admin=True)
-#         self.pagea.delete(users.get_current_user())
-#
-#         self.pagea = WikiPage.get_by_title(u'A')
-#         self.assertEquals(None, self.pagea.modifier)
-#         self.assertEquals(u'', self.pagea.body)
-#         self.assertEquals(0, self.pagea.revision)
+class WikiPageDeleteTest(WikiTestCase):
+    def setUp(self):
+        super(WikiPageDeleteTest, self).setUp()
+        #self.login('a@x.com', 'a')
+
+        self.update_page(u'Hello [[B]]', u'A')
+        self.update_page(u'Hello [[A]]', u'B')
+
+        # reload
+        self.pagea = WikiPage.get_by_title(u'A')
+        self.pageb = WikiPage.get_by_title(u'B')
+
+    def test_deleted(self):
+        self.login('0hoo', '0hoo', self.pagea)
+        self.pagea.delete(self.get_cur_user())
+
+        self.pagea = WikiPage.get_by_title(u'A')
+        self.assertEquals(None, self.pagea.modifier)
+        self.assertEquals(u'', self.pagea.body)
+        self.assertEquals(0, self.pagea.revision)
 #
 #     def test_only_admin_can_perform_delete(self):
 #         self.login('a@x.com', 'a')

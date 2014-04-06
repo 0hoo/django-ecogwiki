@@ -1,6 +1,30 @@
 import urllib
 from django.core.cache import cache
 
+max_recent_users = 20
+
+
+def add_recent_email(email):
+    emails = get_recent_emails()
+    if len(emails) > 0 and emails[-1] == email:
+        return
+    if email in emails:
+        emails.remove(email)
+    emails.append(email)
+    value = emails[-max_recent_users:]
+    _set_cache('view:recentemails', value)
+
+
+def get_recent_emails():
+    key = 'view:recentemails'
+    try:
+        emails = cache.get(key)
+        if emails is None:
+            cache.clear()
+            emails = []
+        return emails
+    except:
+        return []
 
 def _set_cache(key, value):
     cache.set(key, value)
@@ -96,8 +120,29 @@ def del_hashbangs(title):
     cache.delete('model:hashbangs:%s' % urllib.quote(title))
 
 
+def set_titles(email, content):
+    try:
+        add_recent_email(email)
+        _set_cache('model:titles:%s' % email, content)
+    except:
+        pass
+
+
+def get_titles(email):
+    try:
+        return cache.get('model:titles:%s' % email)
+    except:
+        pass
+
+
 def del_titles():
-    pass
+    try:
+        emails = get_recent_emails()
+        keys = ['model:titles:%s' % email
+                for email in emails + ['None']]
+        c.delete_multi(keys)
+    except:
+        pass
 
 
 def flush_all():
