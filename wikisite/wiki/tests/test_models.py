@@ -663,73 +663,73 @@ class WikiPageDeleteTest(WikiTestCase):
         self.assertEquals(None, self.pagea.modifier)
         self.assertEquals(u'', self.pagea.body)
         self.assertEquals(0, self.pagea.revision)
-#
-#     def test_only_admin_can_perform_delete(self):
-#         self.login('a@x.com', 'a')
-#         self.assertRaises(RuntimeError, self.pagea.delete, users.get_current_user())
-#
-#     def test_revisions_should_be_deleted_too(self):
-#         self.login('a@x.com', 'a', is_admin=True)
-#         self.pagea.delete(users.get_current_user())
-#         self.assertEqual(0, self.pagea.revisions.count())
-#
-#     def test_in_out_links(self):
-#         self.login('a@x.com', 'a', is_admin=True)
-#
-#         self.pagea.delete(users.get_current_user())
-#         self.pageb = WikiPage.get_by_title(u'B')
-#         self.assertEquals(1, len(self.pagea.inlinks))
-#         self.assertEquals(0, len(self.pagea.outlinks))
-#         self.assertEquals(0, len(self.pageb.inlinks))
-#         self.assertEquals(1, len(self.pageb.outlinks))
-#
-#     def test_delete_twice(self):
-#         self.login('a@x.com', 'a', is_admin=True)
-#
-#         self.pagea.delete(users.get_current_user())
-#         self.pagea = WikiPage.get_by_title(u'A')
-#         self.pagea.delete(users.get_current_user())
-#
-#     def test_delete_and_create(self):
-#         self.login('a@x.com', 'a', is_admin=True)
-#
-#         self.pagea.delete(users.get_current_user())
-#         self.pagea = WikiPage.get_by_title(u'A')
-#         self.pagea.update_content(u'Hello', 0, user=self.get_cur_user())
-#         self.assertEquals(1, self.pagea.revision)
-#
-#     def test_delete_and_redirection_1(self):
-#         self.update_page(u'.redirect C', u'B')
-#         self.update_page(u'Hello [[A]]', u'C')
-#
-#         self.login('a@x.com', 'a', is_admin=True)
-#         WikiPage.get_by_title(u'A').delete(users.get_current_user())
-#
-#         self.pagea = WikiPage.get_by_title(u'A')
-#         self.pagec = WikiPage.get_by_title(u'C')
-#
-#         self.assertEquals(1, len(self.pagea.inlinks))
-#         self.assertEquals(0, len(self.pagea.outlinks))
-#         self.assertEquals(0, len(self.pagec.inlinks))
-#         self.assertEquals(1, len(self.pagec.outlinks))
-#
-#     def test_delete_and_redirection_2(self):
-#         self.update_page(u'.redirect C', u'B')
-#         self.update_page(u'Hello [[A]]', u'C')
-#
-#         self.login('a@x.com', 'a', is_admin=True)
-#         WikiPage.get_by_title(u'B').delete(users.get_current_user())
-#
-#         self.pagea = WikiPage.get_by_title(u'A')
-#         self.pageb = WikiPage.get_by_title(u'B')
-#         self.pagec = WikiPage.get_by_title(u'C')
-#
-#         self.assertEquals(1, len(self.pagea.inlinks))
-#         self.assertEquals(1, len(self.pagea.outlinks))
-#         self.assertEquals(1, len(self.pageb.inlinks))
-#         self.assertEquals(0, len(self.pageb.outlinks))
-#         self.assertEquals(0, len(self.pagec.inlinks))
-#         self.assertEquals(1, len(self.pagec.outlinks))
+
+    def test_only_admin_can_perform_delete(self):
+        user = self.login('a@x.com', 'a', self.pagea, is_admin=False)
+        self.assertRaises(RuntimeError, self.pagea.delete, user)
+
+    def test_revisions_should_be_deleted_too(self):
+        user = self.login('a@x.com', 'a', self.pagea, is_admin=True)
+        self.pagea.delete(user)
+        self.assertEqual(0, self.pagea.revisions.count())
+
+    def test_in_out_links(self):
+        user = self.login('a@x.com', 'a', self.pagea, is_admin=True)
+
+        self.pagea.delete(user)
+        self.pageb = WikiPage.get_by_title(u'B')
+        self.assertEquals(1, len(self.pagea.inlinks))
+        self.assertEquals(0, len(self.pagea.outlinks))
+        self.assertEquals(0, len(self.pageb.inlinks))
+        self.assertEquals(1, len(self.pageb.outlinks))
+
+    def test_delete_twice(self):
+        user = self.login('a@x.com', 'a', self.pagea, is_admin=True)
+
+        self.pagea.delete(user)
+        self.pagea = WikiPage.get_by_title(u'A')
+        self.pagea.delete(user)
+
+    def test_delete_and_create(self):
+        user = self.login('a@x.com', 'a', self.pagea, is_admin=True)
+
+        self.pagea.delete(user)
+        self.pagea = WikiPage.get_by_title(u'A')
+        self.pagea.update_content(u'Hello', 0, user=self.get_cur_user())
+        self.assertEquals(1, self.pagea.revision)
+
+    def test_delete_and_redirection_1(self):
+        self.update_page(u'.redirect C', u'B')
+        self.update_page(u'Hello [[A]]', u'C')
+
+        user = self.login('a@x.com', 'a', self.pagea, is_admin=True)
+        WikiPage.get_by_title(u'A').delete(user)
+
+        self.pagea = WikiPage.get_by_title(u'A')
+        self.pagec = WikiPage.get_by_title(u'C')
+
+        self.assertEquals(1, len(self.pagea.inlinks))
+        self.assertEquals(0, len(self.pagea.outlinks))
+        self.assertEquals(0, len(self.pagec.inlinks))
+        self.assertEquals(1, len(self.pagec.outlinks))
+
+    def test_delete_and_redirection_2(self):
+        self.update_page(u'.redirect C', u'B')
+        self.update_page(u'Hello [[A]]', u'C')
+
+        user = self.login('a@x.com', 'a', self.pagea, is_admin=True)
+        WikiPage.get_by_title(u'B').delete(user)
+
+        self.pagea = WikiPage.get_by_title(u'A')
+        self.pageb = WikiPage.get_by_title(u'B')
+        self.pagec = WikiPage.get_by_title(u'C')
+
+        self.assertEquals(1, len(self.pagea.inlinks))
+        self.assertEquals(1, len(self.pagea.outlinks))
+        self.assertEquals(1, len(self.pageb.inlinks))
+        self.assertEquals(0, len(self.pageb.outlinks))
+        self.assertEquals(0, len(self.pagec.inlinks))
+        self.assertEquals(1, len(self.pagec.outlinks))
 
 class WikiPageHierarchyTest(WikiTestCase):
     def setUp(self):
