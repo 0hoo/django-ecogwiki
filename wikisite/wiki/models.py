@@ -361,7 +361,7 @@ class WikiPage(models.Model, PageOperationMixin):
             for title in titles:
                 page = WikiPage.get_by_title(title, follow_redirect=True)
                 page.del_inlink(self.title, rel)
-                if len(page.inlinks) == 0 and page.revision == 0 and page.key:
+                if len(page.inlinks) == 0 and page.revision == 0 and page.id:
                     deletes.append(page)
                 else:
                     updates.append(page)
@@ -374,7 +374,8 @@ class WikiPage(models.Model, PageOperationMixin):
             page.save()
 
         for page in deletes:
-            page.delete()
+            page.set_cur_user(self.cur_user)
+            page.delete(self.cur_user)
 
     def _update_redirected_links(self, new_redir, old_redir):
         """Change in/out links of self and related pages according to new redirect metadata"""
