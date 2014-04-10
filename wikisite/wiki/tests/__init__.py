@@ -8,7 +8,7 @@ from .. import caching
 class WikiTestCase(TestCase):
 
     def setUp(self):
-        self.user = User.objects.create_superuser(username='0hoo', email='0hoo@0hoo.com', password='0hoo')
+        self.user = User.objects.create_user(username='0hoo', email='0hoo@0hoo.com', password='0hoo')
 
     def login(self, username, password, page, is_admin=False):
         try:

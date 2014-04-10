@@ -69,7 +69,7 @@ class PageValidationTest(WikiTestCase):
 
     def test_should_not_allow_self_revoking(self):
         self.update_page(u'Hello')
-        #self.assertRaises(ValueError, self.update_page, u'.read admin@x.com\nHello')
+        self.assertRaises(ValueError, self.update_page, u'.read admin@x.com\nHello')
 
     def test_should_not_allow_body_if_there_is_redirect_metadata(self):
         self.assertRaises(ValueError, self.update_page, u'.redirect A\nHello')
@@ -655,8 +655,8 @@ class WikiPageDeleteTest(WikiTestCase):
         self.pageb = WikiPage.get_by_title(u'B')
 
     def test_deleted(self):
-        self.login('0hoo', '0hoo', self.pagea)
-        self.pagea.delete(self.get_cur_user())
+        user = self.login('0hooadmin', '0hooadmin', self.pagea, is_admin=True)
+        self.pagea.delete(user)
 
         self.pagea = WikiPage.get_by_title(u'A')
         self.assertEquals(None, self.pagea.modifier)
@@ -762,18 +762,8 @@ class WikiPageHierarchyTest(WikiTestCase):
 
     def test_delete(self):
         memo = self.update_page(u'Hello', u'GEB/Chapter 1/Memo')
-        user = self.get_cur_user()
+        user = self.login('0hooadmin', '0hoo', memo, is_admin=True)
         memo.delete(user)
 
         self.assertEqual({}, WikiPage.get_by_title(u'GEB').inlinks)
         self.assertEqual({}, WikiPage.get_by_title(u'GEB/Chapter 1').inlinks)
-
-
-# class WikiPageBugsTest(WikiTestCase):
-#     def test_remove_acl_and_link_at_once_caused_an_error(self):
-#         self.login('ak@gmail.com', 'ak')
-#         try:
-#             self.update_page(u'.read ak@gmail.com\n[[B]]', u'A')
-#             self.update_page(u'Hello', u'A')
-#         except AssertionError:
-#             self.fail()
