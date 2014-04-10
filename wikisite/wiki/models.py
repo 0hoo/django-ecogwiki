@@ -3,6 +3,7 @@ import random
 import operator
 from datetime import datetime
 from collections import OrderedDict
+from lib.bzrlib.merge3 import Merge3
 
 from django.utils.timezone import utc
 from django.db import models
@@ -15,6 +16,14 @@ from utils import merge_dicts
 import schema
 import caching
 from toc_generator import TocGenerator
+
+
+class ConflictError(ValueError):
+    def __init__(self, message, base, provided, merged):
+        Exception.__init__(self, message)
+        self.base = base
+        self.provided = provided
+        self.merged = merged
 
 
 class SchemaDataIndexManager(models.Manager):
@@ -255,8 +264,7 @@ class WikiPage(models.Model, PageOperationMixin):
 
         # validate and prepare new contents
         new_data, new_md = self.validate_new_content(base_revision, body, user)
-        new_body = body
-        #self._merge_if_needed(base_revision, body)
+        new_body = self._merge_if_needed(base_revision, body)
 
         # get old data and metadata
         old_md = self.metadata.copy()
@@ -302,6 +310,17 @@ class WikiPage(models.Model, PageOperationMixin):
             caching.del_titles()
 
         return True
+
+    def _merge_if_needed(self, base_revision, new_body):
+        if self.revision == base_revision:
+            return new_body
+
+        base = WikiPageRevision.objects.get(title=self.title, revision=base_revision).body
+        merged = ''.join(Merge3(base, self.body, new_body).merge_lines())
+        conflicted = len(re.findall(PageOperationMixin.re_conflicted, merged)) > 0
+        if conflicted:
+            raise ConflictError('Conflicted', base, new_body, merged)
+        return merged
 
     def update_links_and_data(self, old_redir, new_redir, old_data, new_data):
         self.update_links(old_redir, new_redir)

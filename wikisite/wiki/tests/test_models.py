@@ -36,22 +36,22 @@ class PageUpdateTest(WikiTestCase):
         self.assertEqual(1, len(revs))
         self.assertEqual(u'Hello', revs[0].body)
 
-    # def test_automerge(self):
-    #     page = WikiPage.get_by_title(u'Hello')
-    #     page.update_content(u'A\nB\nC', 0, user=self.get_cur_user())
-    #
-    #     # remove B
-    #     page.update_content(u'A\nC', 1, user=self.get_cur_user())
-    #     # append D
-    #     page.update_content(u'A\nB\nC\nD', 1, user=self.get_cur_user())
-    #
-    #     # should be merged
-    #     page = WikiPage.get_by_title(u'Hello')
-    #     self.assertEqual(u'A\nC\nD', page.body)
-    #     self.assertEqual(3, page.revision)
-    #
-    #     revs = list(page.revisions)
-    #     self.assertEqual(3, len(revs))
+    def test_automerge(self):
+        page = WikiPage.get_by_title(u'Hello')
+        page.update_content(u'A\nB\nC', 0, user=self.get_cur_user())
+
+        # remove B
+        page.update_content(u'A\nC', 1, user=self.get_cur_user())
+        # append D
+        page.update_content(u'A\nB\nC\nD', 1, user=self.get_cur_user())
+
+        # should be merged
+        page = WikiPage.get_by_title(u'Hello')
+        self.assertEqual(u'A\nC\nD', page.body)
+        self.assertEqual(3, page.revision)
+
+        revs = page.revisions.all()
+        self.assertEqual(3, len(revs))
 
 
 class PageValidationTest(WikiTestCase):
