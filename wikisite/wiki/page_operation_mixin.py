@@ -13,6 +13,7 @@ from markdownext import md_url, md_wikilink, md_itemprop, md_mathjax, md_striket
     md_section, md_embed
 from utils import merge_dicts, pairs_to_dict
 from toc_generator import TocGenerator
+import wiki_settings
 
 md = markdown.Markdown(
     extensions=[
@@ -392,6 +393,7 @@ class PageOperationMixin(object):
         return 'http://schema.org/%s' % self.itemtype
 
     def can_read(self, user, default_acl=None, acl_r=None, acl_w=None):
+        default_acl = default_acl or wiki_settings.DEFAULT_CONFIG['service']['default_permissions']
         default_acl = default_acl or {'read': ['all'], 'write': ['login'] }
         acl_r = acl_r or self.acl_read or default_acl['read'] or []
         acl_w = acl_w or self.acl_write or default_acl['write'] or []
@@ -408,7 +410,7 @@ class PageOperationMixin(object):
             return False
 
     def can_write(self, user, default_acl=None, acl_r=None, acl_w=None):
-        default_acl = default_acl or {'read': ['all'], 'write': ['login'] }
+        default_acl = default_acl or wiki_settings.DEFAULT_CONFIG['service']['default_permissions']
         acl_w = acl_w or self.acl_write or default_acl['write'] or []
 
         if (not self.can_read(user, default_acl, acl_r, acl_w)) and (user is None or user.email not in acl_w):

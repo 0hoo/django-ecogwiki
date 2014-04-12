@@ -145,5 +145,13 @@ def del_titles():
         pass
 
 
+def get_config():
+    return cache.get('model:config')
+
+
+def set_config(value):
+    _set_cache('model:config', value)
+
+
 def flush_all():
     cache.clear()

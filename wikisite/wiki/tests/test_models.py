@@ -5,6 +5,7 @@ from ..models import WikiPage, PageOperationMixin
 from . import WikiTestCase
 from ..markdownext.md_wikilink import parse_wikilinks
 from ..utils import title_grouper
+from .. import wiki_settings
 
 
 class PageUpdateTest(WikiTestCase):
@@ -179,6 +180,10 @@ class TitleToPathConvertTest(WikiTestCase):
         self.assertEqual(u'A&B', WikiPage.path_to_title('A%26B'))
         self.assertEqual(u'가', WikiPage.path_to_title('%EA%B0%80'))
 
+
+class YamlParserTest(WikiTestCase):
+    def test_empty_page(self):
+        self.assertEqual(wiki_settings.DEFAULT_CONFIG, WikiPage.get_config())
 
 # class GetConfigTest(WikiTestCase):
 #     def setUp(self):

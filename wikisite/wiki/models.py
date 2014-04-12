@@ -3,19 +3,21 @@ import random
 import operator
 from datetime import datetime
 from collections import OrderedDict
-from lib.bzrlib.merge3 import Merge3
+import yaml
 
 from django.utils.timezone import utc
 from django.db import models
 from django.contrib.auth.models import User
 from jsonfield import JSONField
 
+from lib.bzrlib.merge3 import Merge3
 from markdownext import md_wikilink
 from page_operation_mixin import PageOperationMixin, md
 from utils import merge_dicts
 import schema
 import caching
 from toc_generator import TocGenerator
+import wiki_settings
 
 
 class ConflictError(ValueError):
@@ -110,6 +112,31 @@ class WikiPage(models.Model, PageOperationMixin):
 
     def __str__(self):
         return self.title
+
+    @classmethod
+    def get_config(cls):
+        result = caching.get_config()
+        if result is None:
+            result = wiki_settings.DEFAULT_CONFIG
+
+            try:
+                config_page = cls.get_by_title('.config')
+                user_config = yaml.load(PageOperationMixin.remove_metadata(config_page.body))
+            except:
+                user_config = None
+            user_config = user_config or {}
+
+            def merge_dict(target_dict, source_dict):
+                for (key, value) in source_dict.iteritems():
+                    if type(value) != dict:
+                        target_dict[key] = value
+                    else:
+                        merge_dict(target_dict.setdefault(key, {}), value)
+
+            merge_dict(result, user_config)
+
+            caching.set_config(result)
+        return result
 
     @property
     def hashbangs(self):
