@@ -1,5 +1,6 @@
 from django.http import HttpResponse
-from resources import RedirectResource, PageResource, ChangeListResource, TitleIndexResource, TitleListResource
+from resources import RedirectResource, PageResource, ChangeListResource, TitleIndexResource, TitleListResource, \
+    UserPreferencesResource
 from registration.backends.simple.views import RegistrationView
 from registration.forms import RegistrationFormUniqueEmail
 import caching
@@ -55,4 +56,8 @@ def special(request, path):
             response['Content-Type'] = 'text/plain; charset=utf-8'
             response.write('Done!')
             return response
+        elif path == u'preferences':
+            resource = UserPreferencesResource(request)
+            return resource.get(head)
+
 

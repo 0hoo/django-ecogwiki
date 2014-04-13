@@ -28,6 +28,28 @@ class ConflictError(ValueError):
         self.merged = merged
 
 
+class UserPreferences(models.Model):
+    user = models.ForeignKey(User)
+    userpage_title = models.CharField(max_length=255)
+    created_at = models.DateTimeField()
+
+    @classmethod
+    def savePrefs(cls, user, userpage_title):
+        prefs = cls.get_by_user(user)
+        prefs.userpage_title = userpage_title
+        prefs.save()
+        return prefs
+
+    @classmethod
+    def get_by_user(cls, user):
+        prefs = UserPreferences.objects.filter(user__email=user.email)
+        if not prefs:
+            prefs = UserPreferences()
+            prefs.user = user
+            prefs.created_at = datetime.utcnow().replace(tzinfo=utc)
+            return prefs
+        return prefs[0]
+
 class SchemaDataIndexManager(models.Manager):
     def has_match(self, title, name, value):
         return len(self.filter(title=title, name=name, value=value)) > 0

@@ -2,7 +2,7 @@
 import json
 import urllib2
 from itertools import groupby
-from models import WikiPage
+from models import WikiPage, UserPreferences
 from django.http import HttpResponse, HttpResponseRedirect
 from representations import Representation, TemplateRepresentation, EmptyRepresentation, JsonRepresentation, template
 from .templatetags.wiki_extras import format_iso_datetime
@@ -239,3 +239,54 @@ class TitleListResource(Resource):
 
     def represent_json_default(self, titles):
         return JsonRepresentation(titles)
+
+
+class UserPreferencesResource(Resource):
+    def load(self):
+        if self.user is None:
+            return None
+        else:
+            return UserPreferences.get_by_user(self.user)
+
+    def get(self, head):
+        if self.user is None:
+            self.res.status = 403
+            TemplateRepresentation({
+                'page': {
+                    'absolute_url': '/sp.preferences',
+                    'title': 'User preferences',
+                },
+                'description': 'You don\'t have a permission',
+                'errors': [],
+            }, self.req, 'error.html').respond(self.res, head)
+            return
+        else:
+            representation = self.get_representation(self.load())
+            representation.respond(self.res, head)
+
+    def post(self):
+        if self.user is None:
+            self.res.status = 403
+            TemplateRepresentation({
+                'page': {
+                    'absolute_url': '/sp.preferences',
+                    'title': 'User preferences',
+                },
+                'description': 'You don\'t have a permission',
+                'errors': [],
+            }, self.req, 'error.html').respond(self.res, False)
+            return
+
+        prefs = self.load()
+        prefs.userpage_title = self.req.POST['userpage_title']
+        prefs.put()
+
+        self.res.headers['X-Message'] = 'Successfully updated.'
+        representation = self.get_representation(prefs)
+        representation.respond(self.res, False)
+
+    def represent_html_default(self, prefs):
+        return TemplateRepresentation({
+            'preferences': prefs,
+            'message': self.res.headers.get('X-Message', None),
+        }, self.req, 'sp_preferences.html')

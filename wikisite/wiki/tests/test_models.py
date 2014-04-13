@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from itertools import groupby
 from django.core.cache import cache
-from ..models import WikiPage, PageOperationMixin
+from ..models import WikiPage, PageOperationMixin, UserPreferences
 from . import WikiTestCase
 from ..markdownext.md_wikilink import parse_wikilinks
 from ..utils import title_grouper
@@ -635,18 +635,17 @@ class PageOperationMixinTest(WikiTestCase):
         self.assertEqual(u'anonymous', self.page.modifier_type)
 
 
-# class UserPreferencesTest(WikiTestCase):
-#     def setUp(self):
-#         super(UserPreferencesTest, self).setUp()
-#         self.user = users.User('user@example.com')
-#
-#     def test_get_by_user(self):
-#         prefs = UserPreferences.get_by_user(self.user)
-#         self.assertEquals(None, prefs.userpage_title)
-#
-#         prefs.userpage_title = u'김경수'
-#         prefs.put()
-#         self.assertEquals(u'김경수', UserPreferences.get_by_user(self.user).userpage_title)
+class UserPreferencesTest(WikiTestCase):
+    def setUp(self):
+        super(UserPreferencesTest, self).setUp()
+
+    def test_get_by_user(self):
+        prefs = UserPreferences.get_by_user(self.user)
+        self.assertEquals(u'', prefs.userpage_title)
+
+        prefs.userpage_title = u'김경수'
+        prefs.save()
+        self.assertEquals(u'김경수', UserPreferences.get_by_user(self.user).userpage_title)
 
 
 class WikiPageDeleteTest(WikiTestCase):
