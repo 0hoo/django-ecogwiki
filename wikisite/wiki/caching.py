@@ -130,6 +130,7 @@ def set_titles(email, content):
 
 def get_titles(email):
     try:
+        print email
         return cache.get('model:titles:%s' % email)
     except:
         pass

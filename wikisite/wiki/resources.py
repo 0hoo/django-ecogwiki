@@ -4,7 +4,7 @@ import urllib2
 from itertools import groupby
 from models import WikiPage
 from django.http import HttpResponse, HttpResponseRedirect
-from representations import Representation, TemplateRepresentation, EmptyRepresentation, template
+from representations import Representation, TemplateRepresentation, EmptyRepresentation, JsonRepresentation, template
 from .templatetags.wiki_extras import format_iso_datetime
 from utils import title_grouper
 import caching
@@ -228,3 +228,14 @@ class TitleIndexResource(Resource):
     def represent_atom_default(self, pages):
         content = render_atom(self.req, 'Title index', 'sp.index', pages)
         return Representation(content, 'text/xml; charset=utf-8')
+
+
+class TitleListResource(Resource):
+    def __init__(self, req):
+        super(TitleListResource, self).__init__(req, default_restype='json')
+
+    def load(self):
+        return list(WikiPage.get_titles(self.req.user))
+
+    def represent_json_default(self, titles):
+        return JsonRepresentation(titles)

@@ -1,4 +1,4 @@
-from resources import RedirectResource, PageResource, ChangeListResource, TitleIndexResource
+from resources import RedirectResource, PageResource, ChangeListResource, TitleIndexResource, TitleListResource
 from registration.backends.simple.views import RegistrationView
 from registration.forms import RegistrationFormUniqueEmail
 
@@ -37,11 +37,16 @@ def index(request, path, head=False):
 
 
 def special(request, path):
+    head = False
     if request.method == 'GET':
         if path == u'changes':
             resource = ChangeListResource(request)
-            return resource.get(False)
+            return resource.get(head)
         elif path == u'index':
             resource = TitleIndexResource(request)
-            return resource.get(False)
+            return resource.get(head)
+        elif path == u'titles':
+            resource = TitleListResource(request)
+            return resource.get(head)
+
 

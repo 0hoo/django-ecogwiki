@@ -122,6 +122,16 @@ class WikiPage(models.Model, PageOperationMixin):
                 if page.updated_at and page.can_read(user, default_permission)]
 
     @classmethod
+    def get_titles(cls, user=None):
+        email = user.email if (user is not None and not user.is_anonymous) else u'None'
+        titles = caching.get_titles(email)
+        if titles is None:
+            titles = {page.title for page in cls.get_index(user)}
+            caching.set_titles(email, titles)
+
+        return titles
+
+    @classmethod
     def get_changes(cls, user, index=0, count=50):
         offset = index * count
         pages = WikiPage.objects.filter(updated_at__isnull=False).order_by('-updated_at')[offset:offset+count]

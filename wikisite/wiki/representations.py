@@ -1,3 +1,4 @@
+import json
 from django.template import RequestContext, loader
 from models import WikiPage
 import wiki_settings
@@ -44,6 +45,14 @@ class TemplateRepresentation(Representation):
     def respond(self, httpres, head):
         html = template(self._httpreq, self._template_path, self._content)
         return self._respond(httpres, head, self._content_type, html)
+
+
+class JsonRepresentation(Representation):
+    def __init__(self, content):
+        super(JsonRepresentation, self).__init__(content, 'application/json; charset=utf-8')
+
+    def respond(self, httpres, head):
+        return self._respond(httpres, head, self._content_type, json.dumps(self._content))
 
 
 def template(req, path, data):
