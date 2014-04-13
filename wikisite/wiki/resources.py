@@ -190,3 +190,25 @@ class PageResource(PageLikeResource):
         if page.revision == 0 and self.req.GET.get('body'):
             page.body = self.req.GET.get('body')
         return TemplateRepresentation({'page': page}, self.req, 'wikipage.edit.html')
+
+
+class ChangeListResource(Resource):
+    def load(self):
+        index = int(self.req.GET.get('index', '0'))
+        count = min(50, int(self.req.GET.get('count', '50')))
+        return {
+            'cur_index': index,
+            'next_index': index + 1,
+            'count': count,
+            'pages': WikiPage.get_changes(self.req.user, index, count),
+        }
+
+    def represent_html_default(self, data):
+        return TemplateRepresentation(data, self.req, 'sp_changes.html')
+
+    def represent_atom_default(self, data):
+        content = render_atom(self.req, 'Changes', 'sp.changes', data['pages'])
+        return Representation(content, 'text/xml; charset=utf-8')
+
+    def represent_html_bodyonly(self, data):
+        return TemplateRepresentation(data, self.req, 'sp_changes_bodyonly.html')

@@ -113,6 +113,14 @@ class WikiPage(models.Model, PageOperationMixin):
     def __str__(self):
         return self.title
 
+
+    @classmethod
+    def get_changes(cls, user, index=0, count=50):
+        offset = index * count
+        pages = WikiPage.objects.filter(updated_at__isnull=False).order_by('-updated_at')[offset:offset+count]
+        default_permission = WikiPage.get_default_permission()
+        return [page for page in pages if page.can_read(user, default_permission)]
+
     @classmethod
     def get_config(cls):
         result = caching.get_config()

@@ -1,0 +1,51 @@
+{% extends "wiki/base.html" %}
+{% load wiki_extras %}
+{% block title %}Changes{% endblock %}
+{% block head %}
+    <link rel="alternate" type="application/atom+xml" href="/sp.changes?_type=atom" title="{{ config.service.title }} changes">
+{% endblock %}
+{% block body %}
+<header>
+    <h1>
+        Changes
+    </h1>
+</header>
+
+<table class="pagelist changes">
+    <thead><tr>
+        <th class="updated">Updated</th>
+        <th class="page">Pages</th>
+    </tr></thead>
+    <tbody>
+        {% if pages %}
+        {% for page in pages %}
+        <tr class="page {{ page.modifier_type }}">
+            <td class="updated"><time datetime="{{ page.updated_at|isodt }}">{{ page.updated_at|sdt }}</time></td>
+            <td class="page">
+                <a class="caret-target" href="{{ page.absolute_url }}">{{ page.title }}</a>
+                <br>
+                {% if page.comment %}
+                <span class="comment">
+                {{ page.comment }}
+                </span>
+                <br>
+                {% endif %}
+                <span class="modifier-info">by <span class="modifier">
+                    {% autoescape off %}{{ page.modifier|userpage }}{% endautoescape %}</span></span>
+            </td>
+        </tr>
+        {% endfor %}
+        {% else %}
+            <tr><td colspan=2>(no pages yet)</td></tr>
+        {% endif %}
+    </tbody>
+</table>
+
+{% if pages %}
+<div>
+    <a href="/sp.changes?index={{ next_index }}&amp;count={{ count }}" class="next-page">Load next page...</a>
+    <div class="loading-indicator" style="display: none;"><div class="blockG" id="rotateG_01"></div><div class="blockG" id="rotateG_02"></div><div class="blockG" id="rotateG_03"></div><div class="blockG" id="rotateG_04"></div><div class="blockG" id="rotateG_05"></div><div class="blockG" id="rotateG_06"></div><div class="blockG" id="rotateG_07"></div><div class="blockG" id="rotateG_08"></div></div>
+</div>
+{% endif %}
+
+{% endblock %}

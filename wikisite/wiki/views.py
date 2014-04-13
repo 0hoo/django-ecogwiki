@@ -1,4 +1,4 @@
-from resources import RedirectResource, PageResource
+from resources import RedirectResource, PageResource, ChangeListResource
 from registration.backends.simple.views import RegistrationView
 from registration.forms import RegistrationFormUniqueEmail
 
@@ -34,3 +34,10 @@ def index(request, path, head=False):
         return resource.put()
     elif request.method == 'DELETE':
         pass
+
+
+def special(request, path):
+    if request.method == 'GET':
+        if path == u'changes':
+            resource = ChangeListResource(request)
+            return resource.get(False)
