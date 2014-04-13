@@ -50,6 +50,7 @@ class UserPreferences(models.Model):
             return prefs
         return prefs[0]
 
+
 class SchemaDataIndexManager(models.Manager):
     def has_match(self, title, name, value):
         return len(self.filter(title=title, name=name, value=value)) > 0

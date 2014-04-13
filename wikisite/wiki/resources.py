@@ -243,15 +243,15 @@ class TitleListResource(Resource):
 
 class UserPreferencesResource(Resource):
     def load(self):
-        if self.user is None:
+        if (self.req.user is None) or (self.req.user.is_anonymous()):
             return None
         else:
-            return UserPreferences.get_by_user(self.user)
+            return UserPreferences.get_by_user(self.req.user)
 
     def get(self, head):
-        if self.user is None:
+        if (self.req.user is None) or (self.req.user.is_anonymous()):
             self.res.status = 403
-            TemplateRepresentation({
+            return TemplateRepresentation({
                 'page': {
                     'absolute_url': '/sp.preferences',
                     'title': 'User preferences',
@@ -259,15 +259,14 @@ class UserPreferencesResource(Resource):
                 'description': 'You don\'t have a permission',
                 'errors': [],
             }, self.req, 'error.html').respond(self.res, head)
-            return
         else:
             representation = self.get_representation(self.load())
-            representation.respond(self.res, head)
+            return representation.respond(self.res, head)
 
     def post(self):
-        if self.user is None:
+        if (self.req.user is None) or (self.req.user.is_anonymous()):
             self.res.status = 403
-            TemplateRepresentation({
+            return TemplateRepresentation({
                 'page': {
                     'absolute_url': '/sp.preferences',
                     'title': 'User preferences',
@@ -275,18 +274,17 @@ class UserPreferencesResource(Resource):
                 'description': 'You don\'t have a permission',
                 'errors': [],
             }, self.req, 'error.html').respond(self.res, False)
-            return
 
         prefs = self.load()
         prefs.userpage_title = self.req.POST['userpage_title']
-        prefs.put()
+        prefs.save()
 
-        self.res.headers['X-Message'] = 'Successfully updated.'
+        self.res['X-Message'] = 'Successfully updated.'
         representation = self.get_representation(prefs)
-        representation.respond(self.res, False)
+        return representation.respond(self.res, False)
 
     def represent_html_default(self, prefs):
         return TemplateRepresentation({
             'preferences': prefs,
-            'message': self.res.headers.get('X-Message', None),
+            'message': self.res.get('X-Message', None),
         }, self.req, 'sp_preferences.html')

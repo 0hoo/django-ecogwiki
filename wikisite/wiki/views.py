@@ -59,5 +59,8 @@ def special(request, path):
         elif path == u'preferences':
             resource = UserPreferencesResource(request)
             return resource.get(head)
-
-
+    elif request.method == 'POST':
+        method = request.GET.get('_method', 'POST')
+        if method == 'POST' and path == 'preferences':
+            resource = UserPreferencesResource(request)
+            return resource.post()
