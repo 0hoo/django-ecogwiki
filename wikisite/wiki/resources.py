@@ -1,10 +1,12 @@
 # coding=utf-8
 import json
 import urllib2
+from itertools import groupby
 from models import WikiPage
 from django.http import HttpResponse, HttpResponseRedirect
 from representations import Representation, TemplateRepresentation, EmptyRepresentation, template
 from .templatetags.wiki_extras import format_iso_datetime
+from utils import title_grouper
 import caching
 
 def get_restype(req, default):
@@ -212,3 +214,17 @@ class ChangeListResource(Resource):
 
     def represent_html_bodyonly(self, data):
         return TemplateRepresentation(data, self.req, 'sp_changes_bodyonly.html')
+
+
+class TitleIndexResource(Resource):
+    def load(self):
+        return WikiPage.get_index(self.req.user)
+
+    def represent_html_default(self, pages):
+        page_group = groupby(pages, lambda p: title_grouper(p.title))
+        page_group = [(grouper, list(values)) for grouper, values in page_group]
+        return TemplateRepresentation({'page_group': page_group}, self.req, 'sp_index.html')
+
+    def represent_atom_default(self, pages):
+        content = render_atom(self.req, 'Title index', 'sp.index', pages)
+        return Representation(content, 'text/xml; charset=utf-8')

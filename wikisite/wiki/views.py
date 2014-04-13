@@ -1,4 +1,4 @@
-from resources import RedirectResource, PageResource, ChangeListResource
+from resources import RedirectResource, PageResource, ChangeListResource, TitleIndexResource
 from registration.backends.simple.views import RegistrationView
 from registration.forms import RegistrationFormUniqueEmail
 
@@ -41,3 +41,7 @@ def special(request, path):
         if path == u'changes':
             resource = ChangeListResource(request)
             return resource.get(False)
+        elif path == u'index':
+            resource = TitleIndexResource(request)
+            return resource.get(False)
+

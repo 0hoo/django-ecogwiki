@@ -115,6 +115,13 @@ class WikiPage(models.Model, PageOperationMixin):
 
 
     @classmethod
+    def get_index(cls, user=None):
+        pages = WikiPage.objects.all().order_by('title')
+        default_permission = WikiPage.get_default_permission()
+        return [page for page in pages
+                if page.updated_at and page.can_read(user, default_permission)]
+
+    @classmethod
     def get_changes(cls, user, index=0, count=50):
         offset = index * count
         pages = WikiPage.objects.filter(updated_at__isnull=False).order_by('-updated_at')[offset:offset+count]
