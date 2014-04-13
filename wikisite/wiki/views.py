@@ -1,7 +1,8 @@
+from django.http import HttpResponse
 from resources import RedirectResource, PageResource, ChangeListResource, TitleIndexResource, TitleListResource
 from registration.backends.simple.views import RegistrationView
 from registration.forms import RegistrationFormUniqueEmail
-
+import caching
 
 class WikiRegistrationView(RegistrationView):
     form_class = RegistrationFormUniqueEmail
@@ -48,5 +49,10 @@ def special(request, path):
         elif path == u'titles':
             resource = TitleListResource(request)
             return resource.get(head)
-
+        elif path == u'flush_cache':
+            caching.flush_all()
+            response = HttpResponse()
+            response['Content-Type'] = 'text/plain; charset=utf-8'
+            response.write('Done!')
+            return response
 
