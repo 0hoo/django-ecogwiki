@@ -1,5 +1,6 @@
 from django.template import RequestContext, loader
-
+from models import WikiPage
+import wiki_settings
 
 class Representation(object):
     def __init__(self, content, content_type):
@@ -46,6 +47,9 @@ class TemplateRepresentation(Representation):
 
 
 def template(req, path, data):
+    config = WikiPage.get_config()
     t = loader.get_template('wiki/%s' % path)
-    context = RequestContext(req, data)
-    return t.render(context)
+    c = RequestContext(req, data)
+    c['config'] = config
+    c['app'] = {'version': wiki_settings.VERSION}
+    return t.render(c)

@@ -185,35 +185,36 @@ class YamlParserTest(WikiTestCase):
     def test_empty_page(self):
         self.assertEqual(wiki_settings.DEFAULT_CONFIG, WikiPage.get_config())
 
-# class GetConfigTest(WikiTestCase):
-#     def setUp(self):
-#         super(GetConfigTest, self).setUp()
-#         self.config_page = WikiPage.get_by_title('.config')
-#         self.config_page.update_content(u'''
-#           admin:
-#             email: janghwan@gmail.com
-#           service:
-#             default_permissions:
-#               read: [all]
-#               write: [login]
-#         ''', 0, user=self.get_cur_user())
-#
-#     def test_empty_config_page(self):
-#         config_page = WikiPage.get_by_title('.config')
-#         config_page.update_content('', 1, user=self.get_cur_user())
-#
-#         config = WikiPage.get_config()
-#         perm = config['service']['default_permissions']
-#         self.assertEqual(perm['read'], ['all'])
-#         self.assertEqual(perm['write'], ['login'])
-#
-#     def test_update_by_dot_config_page(self):
-#         config = WikiPage.get_config()
-#         self.assertEqual('janghwan@gmail.com', config['admin']['email'])
-#
-#     def test_updates_partial_configurations(self):
-#         config = WikiPage.get_config()
-#         self.assertEqual('', config['service']['title'])
+
+class GetConfigTest(WikiTestCase):
+    def setUp(self):
+        super(GetConfigTest, self).setUp()
+        self.config_page = WikiPage.get_by_title('.config')
+        self.config_page.update_content(u'''
+          admin:
+            email: janghwan@gmail.com
+          service:
+            default_permissions:
+              read: [all]
+              write: [login]
+        ''', 0, user=self.get_cur_user())
+
+    def test_empty_config_page(self):
+        config_page = WikiPage.get_by_title('.config')
+        config_page.update_content('', 1, user=self.get_cur_user())
+
+        config = WikiPage.get_config()
+        perm = config['service']['default_permissions']
+        self.assertEqual(perm['read'], ['all'])
+        self.assertEqual(perm['write'], ['login'])
+
+    def test_update_by_dot_config_page(self):
+        config = WikiPage.get_config()
+        self.assertEqual('janghwan@gmail.com', config['admin']['email'])
+
+    def test_updates_partial_configurations(self):
+        config = WikiPage.get_config()
+        self.assertEqual('', config['service']['title'])
 
 
 class RelatedPageUpdatingTest(WikiTestCase):
