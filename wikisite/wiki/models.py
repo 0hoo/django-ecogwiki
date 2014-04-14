@@ -126,9 +126,9 @@ class WikiPage(models.Model, PageOperationMixin):
     updated_at = models.DateTimeField(null=True)
 
     published_at = models.DateTimeField(null=True)
-    published_to = models.CharField(max_length=255)
-    older_title = models.CharField(max_length=255)
-    newer_title = models.CharField(max_length=255)
+    published_to = models.CharField(max_length=255, null=True)
+    older_title = models.CharField(max_length=255, null=True)
+    newer_title = models.CharField(max_length=255, null=True)
 
     _inlinks = JSONField()
     _outlinks = JSONField()
@@ -165,7 +165,6 @@ class WikiPage(models.Model, PageOperationMixin):
     @classmethod
     def get_posts_of(cls, title, index=0, count=50):
         offset = index * count
-        print title
         pages = WikiPage.objects.filter(published_to=title, published_at__isnull=False).order_by('-published_at')[offset:offset+count]
         return pages
 
@@ -241,6 +240,7 @@ class WikiPage(models.Model, PageOperationMixin):
     def get_by_title(cls, title, follow_redirect=False):
         if title is None:
             return None
+
         if title[0] == u'=':
             raise ValueError(u'WikiPage title cannot starts with "="')
 
@@ -716,14 +716,14 @@ class WikiPage(models.Model, PageOperationMixin):
         if self.older_title is not None and self.newer_title is not None:
             newer.older_title = self.older_title
             older.newer_title = self.newer_title
-            newer.put()
-            older.put()
+            newer.save()
+            older.save()
         elif self.older_title is not None:
             older.newer_title = None
-            older.put()
+            older.save()
         elif self.newer_title is not None:
             newer.older_title = None
-            newer.put()
+            newer.save()
 
         self.published_at = None
         self.published_to = None
