@@ -1,0 +1,43 @@
+{% load wiki_extras %}
+<!DOCTYPE html><html lang="ko">
+<head><meta charset="utf-8"><title>Posts</title></head>
+<body><div class="wrap">
+<header>
+    <h1>
+        Posts
+        <a href="/sp.posts?_type=atom" class="rss">RSS</a>
+    </h1>
+</header>
+
+<table class="pagelist posts">
+    <thead><tr>
+        <th class="published">Published</th>
+        <th class="page">Pages</th>
+    </tr></thead>
+    <tbody>
+        {% if pages %}
+        {% for page in pages %}
+        <tr class="page {{ page.modifier_type }}">
+            <td class="published"><time datetime="{{ page.published_at|isodt }}">{{ page.published_at|sdt }}</time></td>
+            <td class="page">
+                <a class="caret-target" href="{{ page.absolute_url }}">{{ page.title }}</a>
+                <br>
+                <span class="modifier-info">by <span class="modifier">
+                    {% autoescape off %}{{ page.modifier|userpage }}{% endautoescape %}</span></span>
+            </td>
+        </tr>
+        {% endfor %}
+        {% else %}
+            <tr><td colspan=2>(no posts yet)</td></tr>
+        {% endif %}
+    </tbody>
+</table>
+
+{% if pages %}
+<div>
+    <a href="/sp.posts?index={{ next_index }}&amp;count={{ count }}" class="next-page">Load next page...</a>
+</div>
+{% endif %}
+
+</div></body>
+</html>
