@@ -830,6 +830,10 @@ class WikiPage(models.Model, PageOperationMixin):
         return page
 
     @property
+    def get_similar_title_items(self):
+        return self.get_similar_titles(self.cur_user).items()
+
+    @property
     def link_scoretable(self):
         """Returns all links ordered by score"""
 

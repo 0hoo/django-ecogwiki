@@ -310,3 +310,46 @@ class PostListResource(Resource):
 
     def represent_html_bodyonly(self, data):
         return TemplateRepresentation(data, self.req, 'sp_posts_bodyonly.html')
+
+
+class SearchResultResource(Resource):
+    def load(self):
+        query = self.req.GET.get('q', '')
+        if len(query) == 0:
+            return {
+                'query': query,
+                'page': None,
+            }
+        else:
+            return {
+                'query': query,
+                'page': WikiPage.get_by_title(query),
+            }
+
+    def get(self, head):
+        content = self.load()
+        if get_restype(self.req, 'html') == 'html':
+            redir = self.req.GET.get('redir', '0') == '1' and content['page'].revision != 0
+            if redir:
+                quoted_path = urllib2.quote(content['query'].encode('utf8').replace(' ', '_'))
+                self.res.location = '/' + quoted_path
+                self.res.status = 303
+                return self.res
+
+        representation = self.get_representation(content)
+        return representation.respond(self.res, head)
+
+    def represent_html_default(self, content):
+        return TemplateRepresentation(content, self.req, 'sp_search.html')
+
+    def represent_html_bodyonly(self, content):
+        return TemplateRepresentation(content, self.req, 'sp_search_bodyonly.html')
+
+    def represent_json_default(self, content):
+        if content['query'] is None or len(content['query']) == 0:
+            titles = []
+        else:
+            titles = WikiPage.get_titles(self.user)
+            titles = [t for t in titles if t.find(content['query']) != -1]
+
+        return JsonRepresentation([content['query'], titles])
