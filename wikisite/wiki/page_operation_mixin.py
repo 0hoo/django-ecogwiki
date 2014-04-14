@@ -52,6 +52,15 @@ class PageOperationMixin(object):
     def set_cur_user(self, user):
         self.cur_user = user
 
+
+    @property
+    def absolute_url(self):
+        return self.absolute_latest_url
+
+    @property
+    def absolute_latest_url(self):
+        return u'/%s' % PageOperationMixin.title_to_path(self.title)
+
     @property
     def modifier_type(self):
         if self.modifier is None:
