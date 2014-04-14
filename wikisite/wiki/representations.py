@@ -61,5 +61,6 @@ def template(req, path, data):
     t = loader.get_template('wiki/%s' % path)
     c = RequestContext(req, data)
     c['config'] = config
+    c['is_local'] = req.META['HTTP_HOST'].startswith('localhost')
     c['app'] = {'version': wiki_settings.VERSION}
     return t.render(c)
