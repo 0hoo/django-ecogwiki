@@ -24,9 +24,8 @@
     <link rel="stylesheet" href="{% static 'css/vendor/normalize.css' %}">
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
     {% for css in config.service.css_list %}
-    <link rel="stylesheet" href="{{ css }}">
+    <link rel="stylesheet" href="{{ css }}?ver={{ app.version }}">
     {% endfor %}
-
     <!-- Google Analytics 2013-07-28 { -->
     {% if is_local %}
     <script>

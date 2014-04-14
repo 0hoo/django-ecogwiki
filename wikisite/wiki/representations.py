@@ -3,13 +3,14 @@ from django.template import RequestContext, loader
 from models import WikiPage
 import wiki_settings
 
+
 class Representation(object):
     def __init__(self, content, content_type):
         self._content = content
         self._content_type = content_type
 
     def respond(self, httpres, head):
-        self._respond(httpres, head, self._content_type, self._content)
+        return self._respond(httpres, head, self._content_type, self._content)
 
     def _respond(self, httpres, head, content_type, content):
         httpres['Content-type'] = content_type

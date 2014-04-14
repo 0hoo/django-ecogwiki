@@ -141,7 +141,7 @@ class PageResource(PageLikeResource):
             if redirect is not None:
                 self.res.location = '/' + WikiPage.title_to_path(redirect)
                 self.res.status_code = 303
-                return
+                return self.res
 
         representation = self.get_representation(page)
         return representation.respond(self.res, head)

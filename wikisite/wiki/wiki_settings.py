@@ -24,7 +24,7 @@ DEFAULT_CONFIG = {
         'ga_profile_id': '',
         'ga_classic_profile_id': '',
         'css_list': [
-            '/statics/css/base.css',
+            '/static/css/base.css',
         ],
         'default_permissions': {
             'read': ['all'],
