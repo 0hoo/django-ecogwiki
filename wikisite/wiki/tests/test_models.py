@@ -205,6 +205,7 @@ class GetConfigTest(WikiTestCase):
 
         config = WikiPage.get_config()
         perm = config['service']['default_permissions']
+        self.assertEqual('', config['admin']['email'])
         self.assertEqual(perm['read'], ['all'])
         self.assertEqual(perm['write'], ['login'])
 
