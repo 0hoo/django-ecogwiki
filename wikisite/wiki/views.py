@@ -1,6 +1,6 @@
 from django.http import HttpResponse
 from resources import RedirectResource, PageResource, ChangeListResource, TitleIndexResource, TitleListResource, \
-    UserPreferencesResource
+    UserPreferencesResource, PostListResource
 from registration.backends.simple.views import RegistrationView
 from registration.forms import RegistrationFormUniqueEmail
 import caching
@@ -46,6 +46,9 @@ def special(request, path):
             return resource.get(head)
         elif path == u'index':
             resource = TitleIndexResource(request)
+            return resource.get(head)
+        elif path == u'posts':
+            resource = PostListResource(request)
             return resource.get(head)
         elif path == u'titles':
             resource = TitleListResource(request)

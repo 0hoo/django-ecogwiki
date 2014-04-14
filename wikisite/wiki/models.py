@@ -123,9 +123,10 @@ class WikiPage(models.Model, PageOperationMixin):
     acl_read = models.CharField(max_length=255)
     acl_write = models.CharField(max_length=255)
     revision = models.IntegerField()
-
     updated_at = models.DateTimeField(null=True)
+
     published_at = models.DateTimeField(null=True)
+    published_to = models.CharField(max_length=255)
     older_title = models.CharField(max_length=255)
     newer_title = models.CharField(max_length=255)
 
@@ -160,6 +161,13 @@ class WikiPage(models.Model, PageOperationMixin):
         pages = WikiPage.objects.filter(updated_at__isnull=False).order_by('-updated_at')[offset:offset+count]
         default_permission = WikiPage.get_default_permission()
         return [page for page in pages if page.can_read(user, default_permission)]
+
+    @classmethod
+    def get_posts_of(cls, title, index=0, count=50):
+        offset = index * count
+        print title
+        pages = WikiPage.objects.filter(published_to=title, published_at__isnull=False).order_by('-published_at')[offset:offset+count]
+        return pages
 
     @classmethod
     def get_config(cls):
@@ -666,8 +674,19 @@ class WikiPage(models.Model, PageOperationMixin):
         if self.published_at is not None and self.published_to == title:
             return
 
+        posts = WikiPage.get_posts_of(title, index=0, count=1)
+
+        if len(posts) > 0:
+            latest = posts[0]
+            latest.newer_title = self.title
+            latest.save()
+            self.older_title = latest.title
+
         self.published_to = title
         self.published_at = datetime.utcnow().replace(tzinfo=utc)
+
+        if save:
+            self.save()
 
         caching.del_rendered_body(self.title)
         caching.del_hashbangs(self.title)

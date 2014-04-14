@@ -288,3 +288,25 @@ class UserPreferencesResource(Resource):
             'preferences': prefs,
             'message': self.res.get('X-Message', None),
         }, self.req, 'sp_preferences.html')
+
+
+class PostListResource(Resource):
+    def load(self):
+        index = int(self.req.GET.get('index', '0'))
+        count = min(50, int(self.req.GET.get('count', '50')))
+        return {
+            'cur_index': index,
+            'next_index': index + 1,
+            'count': count,
+            'pages': WikiPage.get_posts_of(None, index, count),
+        }
+
+    def represent_html_default(self, data):
+        return TemplateRepresentation(data, self.req, 'sp_posts.html')
+
+    def represent_atom_default(self, data):
+        content = render_atom(self.req, 'Posts', 'sp.posts', data['pages'])
+        return Representation(content, 'text/xml; charset=utf-8')
+
+    def represent_html_bodyonly(self, data):
+        return TemplateRepresentation(data, self.req, 'sp_posts_bodyonly.html')
