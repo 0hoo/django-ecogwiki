@@ -62,6 +62,10 @@ class PageOperationMixin(object):
         return u'/%s' % PageOperationMixin.title_to_path(self.title)
 
     @property
+    def revision_list_url(self):
+        return u'/%s?rev=list' % PageOperationMixin.title_to_path(self.title)
+
+    @property
     def modifier_type(self):
         if self.modifier is None:
             return 'anonymous'

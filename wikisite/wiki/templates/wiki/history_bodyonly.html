@@ -1,0 +1,48 @@
+{% load wiki_extras %}
+<!DOCTYPE html><html lang="ko">
+<head><meta charset="utf-8"><title>Posts</title></head>
+<body><div class="wrap">
+<header>
+    <h1>
+        Revision History of "{{ page.title }}"
+    </h1>
+</header>
+
+<table class="pagelist revisions">
+    <thead><tr>
+        <th class="modified">Modified</th>
+        <th class="comment">Comment</th>
+    </tr></thead>
+    <tbody>
+        {% if revisions %}
+        {% for revision in revisions %}
+        <tr class="page {{ revision.modifier_type }}">
+            <td class="modified"><time datetime="{{ revision.created_at|isodt }}">{{ revision.created_at|sdt }}</time></td>
+            <td>
+                <span class="modifier">
+                    {% autoescape off %}{{ revision.modifier|userpage }}{% endautoescape %}</span>
+                <br>
+                <a class="caret-target comment" href="{{ revision.absolute_url }}" rel="nofollow">
+                    {% if revision.comment %}
+                    {{ revision.comment }}
+                    {% else %}
+                    No comment
+                    {% endif %}
+                </a>
+            </td>
+        </tr>
+        {% endfor %}
+        {% else %}
+            <tr><td colspan="2">(no revisions)</td></tr>
+        {% endif %}
+    </tbody>
+</table>
+
+{% if revisions %}
+<div>
+    <a href="?rev=list&amp;index={{ next_index }}&amp;count={{ count }}" class="next-page">Load next page...</a>
+</div>
+{% endif %}
+
+</div></body>
+</html>

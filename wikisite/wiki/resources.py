@@ -2,7 +2,7 @@
 import json
 import urllib2
 from itertools import groupby
-from models import WikiPage, UserPreferences
+from models import WikiPage, WikiPageRevision, UserPreferences
 from django.http import HttpResponse, HttpResponseRedirect
 from representations import Representation, TemplateRepresentation, EmptyRepresentation, JsonRepresentation, template
 from .templatetags.wiki_extras import format_iso_datetime
@@ -353,3 +353,71 @@ class SearchResultResource(Resource):
             titles = [t for t in titles if t.find(content['query']) != -1]
 
         return JsonRepresentation([content['query'], titles])
+
+
+class RevisionResource(PageLikeResource):
+    def __init__(self, req, path, revid):
+        super(RevisionResource, self).__init__(req, path)
+        self._revid = revid
+
+    def load(self):
+        page = WikiPage.get_by_path(self.path)
+
+        rev = self._revid
+        if rev == 'latest':
+            rev = page.revision
+        else:
+            rev = int(rev)
+        return page.revisions.filter(revision=rev).get()
+
+    def get(self, head):
+        page = self.load()
+
+        if not page.can_read(self.req.user):
+            return self._403(page, head)
+        else:
+            representation = self.get_representation(page)
+            return representation.respond(self.res, head)
+
+
+class RevisionListResource(Resource):
+    def __init__(self, req, path):
+        super(RevisionListResource, self).__init__(req)
+        self.path = path
+
+    def load(self):
+        index = int(self.req.GET.get('index', '0'))
+        count = min(50, int(self.req.GET.get('count', '50')))
+        page = WikiPage.get_by_path(self.path)
+
+        offset = index * count
+        revisions = [
+            r for r in page.revisions.all().order_by('-created_at')[offset:offset+count]
+            if r.can_read(self.req.user)
+        ]
+        return {
+            'cur_index': index,
+            'next_index': index + 1,
+            'count': count,
+            'page': page,
+            'revisions': revisions,
+        }
+
+    def represent_html_default(self, content):
+        return TemplateRepresentation(content, self.req, 'history.html')
+
+    def represent_json_default(self, content):
+        content = [
+            {
+                'revision': rev.revision,
+                'url': rev.absolute_url,
+                'created_at': format_iso_datetime(rev.created_at),
+            }
+            for rev in content['revisions']
+        ]
+        return JsonRepresentation(content)
+
+    def represent_html_bodyonly(self, data):
+        return TemplateRepresentation(data, self.req, 'history_bodyonly.html')
+
+

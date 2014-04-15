@@ -1,9 +1,10 @@
 from django.http import HttpResponse
 from resources import RedirectResource, PageResource, ChangeListResource, TitleIndexResource, TitleListResource, \
-    UserPreferencesResource, PostListResource, SearchResultResource
+    UserPreferencesResource, PostListResource, SearchResultResource, RevisionListResource, RevisionResource
 from representations import TemplateRepresentation
 from registration.backends.simple.views import RegistrationView
 from registration.forms import RegistrationFormUniqueEmail
+from models import WikiPage
 import caching
 
 class WikiRegistrationView(RegistrationView):
@@ -17,6 +18,15 @@ def index(request, path, head=False):
     if request.method == 'GET':
         if path == '':
             resource = RedirectResource(request, '/Home')
+            return resource.get(head)
+        elif request.path.find(' ') != -1:
+            resource = RedirectResource(request, '/%s' % WikiPage.title_to_path(path))
+            return resource.get(head)
+        elif request.GET.get('rev') == 'list':
+            resource = RevisionListResource(request, path)
+            return resource.get(head)
+        elif request.GET.get('rev', '') != '':
+            resource = RevisionResource(request, path, request.GET.get('rev', ''))
             return resource.get(head)
         else:
             resource = PageResource(request, path)
