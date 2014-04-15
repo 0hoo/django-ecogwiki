@@ -1,6 +1,7 @@
 from django.http import HttpResponse
 from resources import RedirectResource, PageResource, ChangeListResource, TitleIndexResource, TitleListResource, \
     UserPreferencesResource, PostListResource, SearchResultResource
+from representations import TemplateRepresentation
 from registration.backends.simple.views import RegistrationView
 from registration.forms import RegistrationFormUniqueEmail
 import caching
@@ -65,6 +66,9 @@ def special(request, path):
         elif path == u'preferences':
             resource = UserPreferencesResource(request)
             return resource.get(head)
+        elif path == u'opensearch':
+            representation = TemplateRepresentation({}, request, 'opensearch.xml')
+            return representation.respond(HttpResponse(), head)
     elif request.method == 'POST':
         method = request.GET.get('_method', 'POST')
         if method == 'POST' and path == 'preferences':
