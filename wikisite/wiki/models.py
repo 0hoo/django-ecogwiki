@@ -18,6 +18,7 @@ import schema
 import caching
 from toc_generator import TocGenerator
 import wiki_settings
+import search
 
 
 class ConflictError(ValueError):
@@ -137,6 +138,21 @@ class WikiPage(models.Model, PageOperationMixin):
     def __str__(self):
         return self.title
 
+    @classmethod
+    def search(cls, expression):
+        # parse
+        parsed = search.parse_expression(expression)
+
+        # evaluate
+        pos, neg = parsed['pos'], parsed['neg']
+        pos_pages = [cls.get_by_title(t, True) for t in pos]
+        neg_pages = [cls.get_by_title(t, True) for t in neg]
+        scoretable = search.evaluate(
+            dict((page.title, page.link_scoretable) for page in pos_pages),
+            dict((page.title, page.link_scoretable) for page in neg_pages)
+        )
+
+        return scoretable
 
     @classmethod
     def get_index(cls, user=None):
@@ -167,6 +183,23 @@ class WikiPage(models.Model, PageOperationMixin):
         offset = index * count
         pages = WikiPage.objects.filter(published_to=title, published_at__isnull=False).order_by('-published_at')[offset:offset+count]
         return pages
+
+    @classmethod
+    def randomly_update_related_links(cls,  iteration, recent=False):
+        if recent:
+            titles = [p.title for p in WikiPage.get_changes(None, count=iteration)]
+        else:
+            titles = WikiPage.get_titles()
+
+        if len(titles) > iteration:
+            titles = random.sample(titles, iteration)
+
+        pages = [cls.get_by_title(title, follow_redirect=True) for title in titles]
+        for p in pages:
+            if p.update_related_links():
+                p.save()
+
+        return titles
 
     @classmethod
     def get_config(cls):

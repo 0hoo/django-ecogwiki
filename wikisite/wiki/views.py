@@ -1,6 +1,7 @@
 from django.http import HttpResponse
 from resources import RedirectResource, PageResource, ChangeListResource, TitleIndexResource, TitleListResource, \
-    UserPreferencesResource, PostListResource, SearchResultResource, RevisionListResource, RevisionResource
+    UserPreferencesResource, PostListResource, SearchResultResource, RevisionListResource, RevisionResource, \
+    RelatedPagesResource
 from representations import TemplateRepresentation
 from registration.backends.simple.views import RegistrationView
 from registration.forms import RegistrationFormUniqueEmail
@@ -79,8 +80,21 @@ def special(request, path):
         elif path == u'opensearch':
             representation = TemplateRepresentation({}, request, 'opensearch.xml')
             return representation.respond(HttpResponse(), head)
+        elif path == u'randomly_update_related_pages':
+            recent = request.GET.get('recent', '0')
+            titles = WikiPage.randomly_update_related_links(50, recent == '1')
+            response = HttpResponse()
+            response['Content-Type'] = 'text/plain; charset=utf-8'
+            response.write('\n'.join(titles))
+            return response
     elif request.method == 'POST':
         method = request.GET.get('_method', 'POST')
         if method == 'POST' and path == 'preferences':
             resource = UserPreferencesResource(request)
             return resource.post()
+
+
+def related(request, path):
+    head = False
+    resource = RelatedPagesResource(request, path)
+    return resource.get(head)

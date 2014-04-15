@@ -1,13 +1,16 @@
 # coding=utf-8
 import json
 import urllib2
+import operator
 from itertools import groupby
-from models import WikiPage, WikiPageRevision, UserPreferences
+from collections import OrderedDict
+from models import WikiPage, UserPreferences
 from django.http import HttpResponse, HttpResponseRedirect
 from representations import Representation, TemplateRepresentation, EmptyRepresentation, JsonRepresentation, template
 from .templatetags.wiki_extras import format_iso_datetime
 from utils import title_grouper
 import caching
+import search
 
 def get_restype(req, default):
     return str(req.GET.get('_type', default))
@@ -420,4 +423,39 @@ class RevisionListResource(Resource):
     def represent_html_bodyonly(self, data):
         return TemplateRepresentation(data, self.req, 'history_bodyonly.html')
 
+
+class RelatedPagesResource(Resource):
+    def __init__(self, req, path):
+        super(RelatedPagesResource, self).__init__(req)
+        self.path = path
+
+    def load(self):
+        expression = WikiPage.path_to_title(self.path)
+        scoretable = WikiPage.search(expression)
+        parsed_expression = search.parse_expression(expression)
+        positives = dict([(k, v) for k, v in scoretable.items() if v >= 0.0])
+        positives = OrderedDict(sorted(positives.iteritems(),
+                                       key=operator.itemgetter(1),
+                                       reverse=True)[:20])
+        negatives = dict([(k, abs(v)) for k, v in scoretable.items() if v < 0.0])
+        negatives = OrderedDict(sorted(negatives.iteritems(),
+                                       key=operator.itemgetter(1),
+                                       reverse=True)[:20])
+        context =  {
+            'expression': expression,
+            'parsed_expression': parsed_expression,
+            'positives': positives,
+            'negatives': negatives,
+        }
+        if positives:
+            context['positive_items'] = positives.items()
+        if negatives:
+            context['negative_items'] = negatives.items()
+        return context
+
+    def represent_html_default(self, content):
+        return TemplateRepresentation(content, self.req, 'search.html')
+
+    def represent_json_default(self, content):
+        return JsonRepresentation(content)
 
