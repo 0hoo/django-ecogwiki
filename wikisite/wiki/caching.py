@@ -26,7 +26,7 @@ def get_recent_emails():
     except:
         return []
 
-def _set_cache(key, value):
+def _set_cache(key, value, exp_sec=None):
     cache.set(key, value)
 
 
@@ -151,6 +151,26 @@ def get_config():
 
 def set_config(value):
     _set_cache('model:config', value)
+
+
+def set_wikiquery(q, email, value):
+    # adaptive expiration time
+    exp_sec = 60
+    if type(value) == list:
+        if len(value) < 2:
+            exp_sec = 60
+        elif len(value) < 10:
+            exp_sec = 60 * 5
+        elif len(value) < 100:
+            exp_sec = 60 * 60
+        elif len(value) < 500:
+            exp_sec = 60 * 60 * 24
+
+    _set_cache('model:wikiquery:%s:%s' % (urllib.quote(q), email), value, exp_sec)
+
+
+def get_wikiquery(q, email):
+    return cache.get('model:wikiquery:%s:%s' % (urllib.quote(q), email))
 
 
 def flush_all():

@@ -109,6 +109,18 @@ class SchemaDataIndex(models.Model):
                 pairs.add((key, value))
         return pairs
 
+    @classmethod
+    def query_by_title(cls, title):
+        return SchemaDataIndex.objects.filter(title=title)
+
+    @classmethod
+    def query_titles(cls, name, value):
+        return [i.title for i in SchemaDataIndex.objects.filter(name=name, value=value)]
+
+    @classmethod
+    def has_match(cls, title, name, value):
+        return SchemaDataIndex.objects.filter(title=title, name=name, value=value).count() > 0
+
 
 class WikiPage(models.Model, PageOperationMixin):
     re_normalize_title = re.compile(ur'([\[\]\(\)\~\!\@\#\$\%\^\&\*\-'
@@ -153,6 +165,56 @@ class WikiPage(models.Model, PageOperationMixin):
         )
 
         return scoretable
+
+    @classmethod
+    def wikiquery(cls, q, user=None):
+        email = user.email if (user is not None and not user.is_anonymous()) else 'None'
+        results = caching.get_wikiquery(q, email)
+        if results is None:
+            page_query, attrs = search.parse_wikiquery(q)
+            titles = cls._evaluate_pages(page_query)
+            accessible_titles = WikiPage.get_titles(user).intersection(titles)
+
+            results = []
+            if attrs == [u'name']:
+                results += [{u'name': title} for title in accessible_titles]
+            else:
+                for title in accessible_titles:
+                    pagedata = WikiPage.get_by_title(title, follow_redirect=True).data
+                    results.append(OrderedDict((attr, pagedata[attr] if attr in pagedata else None) for attr in attrs))
+
+            if len(results) == 1:
+                results = results[0]
+
+            caching.set_wikiquery(q, email, results)
+        return results
+
+    @classmethod
+    def _evaluate_pages(cls, q):
+        if len(q) == 1:
+            pages = cls._evaluate_pages(q[0])
+        elif len(q) == 2:
+            pages = cls._evaluate_page_query_term(q[0], q[1])
+        else:
+            pages = cls._evaluate_page_query_expr(q[0], q[1], q[2:])
+        return pages
+
+    @classmethod
+    def _evaluate_page_query_term(cls, name, value):
+        if name == 'schema' and value.find('/') == -1:
+            value = schema.get_itemtype_path(value)
+        return SchemaDataIndex.query_titles(name, value)
+
+    @classmethod
+    def _evaluate_page_query_expr(cls, operand, op, rest):
+        pages1 = cls._evaluate_pages(operand)
+        pages2 = cls._evaluate_pages(rest)
+
+        if op == '*':
+            return set(pages1).intersection(pages2)
+        elif op == '+':
+            return set(pages1).union(pages2)
+        raise ValueError('Invalid operator: %s' % op)
 
     @classmethod
     def get_index(cls, user=None):
