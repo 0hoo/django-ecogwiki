@@ -1,0 +1,14 @@
+{% extends "wiki/base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block body %}
+<article>
+    <header>
+        <h1>{{ title }}</h1>
+    </header>
+    <section class="body">
+        {% autoescape off %}{{ body }}{% endautoescape %}
+    </section>
+</article>
+{% endblock %}

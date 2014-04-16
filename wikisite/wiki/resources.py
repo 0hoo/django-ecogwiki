@@ -11,6 +11,7 @@ from .templatetags.wiki_extras import format_iso_datetime
 from utils import title_grouper
 import caching
 import search
+import schema
 
 def get_restype(req, default):
     return str(req.GET.get('_type', default))
@@ -459,3 +460,32 @@ class RelatedPagesResource(Resource):
     def represent_json_default(self, content):
         return JsonRepresentation(content)
 
+
+class WikiqueryResource(Resource):
+    def __init__(self, req, path):
+        super(WikiqueryResource, self).__init__(req)
+        self.path = path
+
+    def load(self):
+        query = WikiPage.path_to_title(self.path)
+        return {
+            'result': WikiPage.wikiquery(query, self.req.user),
+            'query': query
+        }
+
+    def represent_html_default(self, content):
+        content = {
+            'title': content['query'],
+            'body': schema.to_html(content['result']),
+        }
+        return TemplateRepresentation(content, self.req, 'generic.html')
+
+    def represent_html_bodyonly(self, content):
+        content = {
+            'title': u'Search: %s ' % content['query'],
+            'body': schema.to_html(content['result']),
+        }
+        return TemplateRepresentation(content, self.req, 'generic_bodyonly.html')
+
+    def represent_json_default(self, content):
+        return JsonRepresentation(content)

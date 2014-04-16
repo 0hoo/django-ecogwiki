@@ -1,7 +1,7 @@
 from django.http import HttpResponse
 from resources import RedirectResource, PageResource, ChangeListResource, TitleIndexResource, TitleListResource, \
     UserPreferencesResource, PostListResource, SearchResultResource, RevisionListResource, RevisionResource, \
-    RelatedPagesResource
+    RelatedPagesResource, WikiqueryResource
 from representations import TemplateRepresentation
 from registration.backends.simple.views import RegistrationView
 from registration.forms import RegistrationFormUniqueEmail
@@ -97,4 +97,9 @@ def special(request, path):
 def related(request, path):
     head = False
     resource = RelatedPagesResource(request, path)
+    return resource.get(head)
+
+def wikiquery(request, path):
+    head = False
+    resource = WikiqueryResource(request, path)
     return resource.get(head)

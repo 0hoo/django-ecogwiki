@@ -13,6 +13,37 @@ SCHEMA_TO_LOAD = [
 ]
 
 
+def to_html(o):
+    obj_type = type(o)
+    if isinstance(o, dict):
+        return render_dict(o)
+    elif obj_type == list:
+        return render_list(o)
+    elif isinstance(o, Property):
+        return o.render()
+    return unicode(o)
+
+
+def render_dict(o):
+    if len(o) == 1:
+        return to_html(o.values()[0])
+
+    html = ['<dl class="wq wq-dict">']
+    for key, value in o.items():
+        html.append('<dt class="wq-key-%s">%s</dt>' % (key, key))
+        html.append('<dd class="wq-value-%s">%s</dd>' % (key, to_html(value)))
+    html.append('</dl>')
+
+    return '\n'.join(html)
+
+
+def render_list(o):
+    return '\n'.join(
+        ['<ul class="wq wq-list">'] +
+        ['<li>%s</li>' % to_html(value) for value in o] +
+        ['</ul>'])
+
+
 def get_legacy_spellings():
     schema_set = get_schema_set()
     props = schema_set['properties']
