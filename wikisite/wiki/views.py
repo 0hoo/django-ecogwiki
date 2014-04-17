@@ -8,6 +8,7 @@ from registration.forms import RegistrationFormUniqueEmail
 from models import WikiPage
 import caching
 
+
 class WikiRegistrationView(RegistrationView):
     form_class = RegistrationFormUniqueEmail
 
@@ -98,6 +99,7 @@ def related(request, path):
     head = False
     resource = RelatedPagesResource(request, path)
     return resource.get(head)
+
 
 def wikiquery(request, path):
     head = False

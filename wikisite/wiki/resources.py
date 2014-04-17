@@ -4,6 +4,7 @@ import urllib2
 import operator
 from itertools import groupby
 from collections import OrderedDict
+from pyatom import AtomFeed
 from models import WikiPage, UserPreferences
 from django.http import HttpResponse, HttpResponseRedirect
 from representations import Representation, TemplateRepresentation, EmptyRepresentation, JsonRepresentation, template
@@ -489,3 +490,19 @@ class WikiqueryResource(Resource):
 
     def represent_json_default(self, content):
         return JsonRepresentation(content)
+
+
+def render_atom(req, title, path, pages, include_content=False, use_published_date=False):
+    config = WikiPage.get_config()
+    host = req.get_host()
+    title = '%s: %s' % (config['service']['title'], title)
+    url = "%s/%s?_type=atom" % (host, path)
+    feed = AtomFeed(title=title, feed_url=url, url="%s/" % host, author=config['admin']['email'])
+    for page in pages:
+        feed.add(title=page.title,
+                 content_type="html",
+                 content=(page.rendered_body if include_content else ""),
+                 author=page.modifier,
+                 url='%s%s' % (host, page.absolute_url),
+                 updated=(page.published_at if use_published_date else page.updated_at))
+    return feed.to_string()

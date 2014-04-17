@@ -150,6 +150,9 @@ class WikiPage(models.Model, PageOperationMixin):
     def __str__(self):
         return self.title
 
+    def get_posts(self, index=0, count=50):
+        return WikiPage.get_posts_of(self.title, index, count)
+
     @classmethod
     def search(cls, expression):
         # parse
