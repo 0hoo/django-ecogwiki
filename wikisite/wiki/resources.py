@@ -104,7 +104,7 @@ class PageLikeResource(Resource):
     def represent_json_default(self, page):
         content = {
             'title': page.title,
-            'modifier': page.modifier.email() if page.modifier else None,
+            'modifier': page.modifier.email if page.modifier else None,
             'updated_at': format_iso_datetime(page.updated_at),
             'body': page.body,
             'revision': page.revision,
