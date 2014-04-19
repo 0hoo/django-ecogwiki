@@ -1,0 +1,53 @@
+Copyright (c) 2014 Young Hoo Kim (zerohoo.kim@gmail.com)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+External libraries:
+
+- Python Markdown (BSD License)
+  https://pypi.python.org/pypi/Markdown
+
+- pyatom.py (BSD License)
+  https://pypi.python.org/pypi/pyatom
+
+- normalize.css (https://github.com/necolas/normalize.css/blob/master/LICENSE.md)
+  http://necolas.github.io/normalize.css/
+
+- Code Mirror (MIT License - http://codemirror.net/LICENSE)
+  http://codemirror.net/
+
+- jQuery (MIT License - https://github.com/jquery/jquery/blob/master/MIT-LICENSE.txt)
+  http://jquery.com/
+
+- js-yaml (MIT License)
+  https://github.com/nodeca/js-yaml
+
+- JUMLY (MIT License)
+  http://jumly.herokuapp.com/
+
+- Reveal.js (MIT License - https://github.com/hakimel/reveal.js/blob/master/LICENSE)
+  https://github.com/hakimel/reveal.js
+
+- viz.js (https://github.com/mdaines/viz.js/blob/master/COPYING)
+  https://github.com/mdaines/viz.js/
+
+- bzrlib (GPL v2+)
+  http://wiki.bazaar.canonical.com/BzrLib
+
+- pyparsing (MIT License)
+  http://pythonhosted.org/pyparsing/
+
+- highlight.js (BSD License - https://github.com/isagalaev/highlight.js/blob/master/LICENSE)
+  http://highlightjs.org
