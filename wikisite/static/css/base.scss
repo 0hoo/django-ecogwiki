@@ -192,6 +192,9 @@ div.contents {
 .top-bar li.search input[type="submit"] {
     display: none;
 }
+.top-bar .user-email {
+    display: none;
+}
 
 @media (max-width:320px) {
     .top-bar .preferences {
@@ -327,7 +330,7 @@ header .edit_menu {
 
 .editform input.comment {
     width: 100%;
-    margin: 10px 0;
+    margin: 2em 0 0.5em;
     box-sizing: border-box;
 }
 .editform .actions {
@@ -489,6 +492,10 @@ article .body h6 {
     font-size: 0.9em;
 }
 
+article .body .hidden {
+    display: none;
+}
+
 article .body a[href^="ftp://"],
 article .body a[href^="https://"],
 article .body a[href^="http://"] {
@@ -630,6 +637,10 @@ article .body .structured-data dt {
 article .body .structured-data dd {
     margin-left: 0;
     margin-right: 0;
+}
+article .body .structured-data dd img {
+    display: inline-block;
+    width: 100%;
 }
 
 article .body hr {
@@ -803,6 +814,10 @@ article .body .more-suggestions {
     }
     article .body .video.slideshare {
         position: relative; padding-bottom: 83.52%; height: 0; overflow: hidden;
+    }
+    article .body .video.googlemap,
+    article .body .video.googlemap2 {
+        position: relative; padding-bottom: 82.35%; height: 0; overflow:hidden;
     }
     article .body .video iframe,
     article .body .video object,

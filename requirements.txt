@@ -1,6 +1,10 @@
 Django==1.6.1
 Markdown==2.3.1
 PyYAML==3.10
-gunicorn==18.0
+django-registration==1.0
 jsonfield==0.9.20
+pyatom==1.4
+pyparsing==2.0.2
+python-memcached==1.53
 pytz==2013.9
+wsgiref==0.1.2
