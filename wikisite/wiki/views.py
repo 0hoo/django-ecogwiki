@@ -1,7 +1,7 @@
 from django.http import HttpResponse
 from resources import RedirectResource, PageResource, ChangeListResource, TitleIndexResource, TitleListResource, \
     UserPreferencesResource, PostListResource, SearchResultResource, RevisionListResource, RevisionResource, \
-    RelatedPagesResource, WikiqueryResource
+    RelatedPagesResource, WikiqueryResource, SchemaResource
 from representations import TemplateRepresentation
 from registration.backends.simple.views import RegistrationView
 from registration.forms import RegistrationFormUniqueEmail
@@ -77,6 +77,9 @@ def special(request, path):
             return response
         elif path == u'preferences':
             resource = UserPreferencesResource(request)
+            return resource.get(head)
+        elif path.startswith(u'schema/'):
+            resource = SchemaResource(request, path)
             return resource.get(head)
         elif path == u'opensearch':
             representation = TemplateRepresentation({}, request, 'opensearch.xml')

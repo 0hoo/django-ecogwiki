@@ -13,7 +13,7 @@ from markdownext import md_url, md_wikilink, md_itemprop, md_mathjax, md_striket
     md_section, md_embed
 from utils import merge_dicts, pairs_to_dict
 from toc_generator import TocGenerator
-import wiki_settings
+import acl
 
 md = markdown.Markdown(
     extensions=[
@@ -38,7 +38,20 @@ class PageOperationMixin(object):
     re_img = re.compile(ur'<(.+?)>[\n\t\s]*<img( .+? )/>[\n\t\s]*</(.+?)>')
     re_metadata = re.compile(ur'^\.([^\s]+)(\s+(.+))?$')
     re_data = re.compile(ur'({{|\[\[)(?P<name>[^\]}]+)::(?P<value>[^\]}]+)(}}|\]\])')
-    re_yaml_schema = re.compile(ur'(?:\s{4}|\t)#!yaml/schema[\n\r]+(((?:\s{4}|\t).+[\n\r]+?)+)')
+    re_section_data = re.compile(ur'''^(?P<name>[^\s]+?)::---+$''')
+    re_yaml_schema = re.compile(ur'''
+                                # HEADER
+        (?:[ ]{4}|\t)           #   leading tab or 4 space followed by (non-capture)
+        \#!yaml/schema          #   `#!yaml/schema`
+        \n+                     #   new line(s)
+        (                       # CONTENT (group 1)
+            (                   #   multiple lines of  (group 2)
+                (?:[ ]{4}|\t)   #   leading tab or 4 space followed by (non-capture)
+                .+?             #   any string
+                \n+             #   new line(s)
+            )+
+        )
+    ''', re.VERBOSE + re.MULTILINE + re.DOTALL)
     re_conflicted = re.compile(ur'<<<<<<<.+=======.+>>>>>>>', re.DOTALL)
     re_special_titles_years = re.compile(ur'^(10000|\d{1,4})( BCE)?$')
     re_special_titles_dates = re.compile(ur'^((?P<month>January|February|March|'
@@ -203,20 +216,78 @@ class PageOperationMixin(object):
 
     @classmethod
     def parse_data(cls, title, body, itemtype=u'Article'):
-        # collect data
+        body = body.replace('\r\n', '\n')
+
         default_data = {'name': title, 'schema': schema.get_itemtype_path(itemtype)}
+
+        # collect
         yaml_data = cls.parse_schema_yaml(body)
         body_data = pairs_to_dict((m.group('name'), m.group('value')) for m in re.finditer(cls.re_data, body))
-        data = merge_dicts([default_data, yaml_data, body_data])
+
+        if itemtype == u'Article' or u'Article' in schema.get_schema(itemtype)[u'ancestors']:
+            default_section = u'articleBody'
+        else:
+            default_section = u'longDescription'
+        section_data = cls.parse_sections(body, default_section)
+
+        # merge
+        data = merge_dicts([default_data, yaml_data, body_data, section_data])
 
         # validation and type conversion
         typed = schema.SchemaConverter.convert(itemtype, data)
 
         return typed
 
+    @classmethod
+    def parse_sections(cls, body, default_section=u'articleBody'):
+        # remove metadata and yaml schema block
+        body = cls.remove_metadata(body)
+        body = re.sub(PageOperationMixin.re_yaml_schema, u'\n', body).strip()
+        lines = body.split('\n')
+
+        # append default section
+        if not cls.re_section_data.match(lines[0]):
+            lines.insert(0, u'%s::---' % default_section)
+
+        i = 0
+        sections = {}
+        section_name = None
+        section_lines = None
+
+        while i < len(lines):
+            m = cls.re_section_data.match(lines[i])
+            if m:
+                if section_name is None:
+                    # Found first section. Start new one
+                    section_name = m.group('name')
+                    section_lines = []
+                else:
+                    # Found other section. Close current one and start the new one
+                    sections[section_name] = '\n'.join(section_lines).strip()
+                    section_name = m.group('name')
+                    section_lines = []
+            else:
+                # In the section. Collect lines
+                section_lines.append(lines[i])
+
+            # Remove this line
+            lines.pop(i)
+
+        if section_name:
+            sections[section_name] = '\n'.join(section_lines).strip()
+
+        return sections
+
+
     @property
     def data(self):
-        return PageOperationMixin.parse_data(self.title, self.body, self.itemtype)
+        data = PageOperationMixin.parse_data(self.title, self.body, self.itemtype)
+        data['datePageModified'] = schema.DateTimeProperty(self.itemtype, 'DateTime', 'datePageModified', self.updated_at)
+        return data
+
+    @property
+    def rawdata(self):
+        return dict((k, self._get_raw_data_value(v)) for k, v in self.data.items())
 
     @classmethod
     def parse_schema_yaml(cls, body):
@@ -229,9 +300,10 @@ class PageOperationMixin(object):
 
         # parse
         try:
-            parsed = yaml.load(m.group(1))
+            captured = m.group(1).replace('\t', '    ')
+            parsed = yaml.load(captured)
         except ParserError as e:
-            raise ValueError(e)
+            raise ValueError(e.message or u'invalid YAML format:<pre>%s</pre>' % m.group(0))
 
         # check if it's dict
         if type(parsed) != dict:
@@ -305,10 +377,18 @@ class PageOperationMixin(object):
 
     @property
     def rendered_data(self):
-        data = [(n, v, schema.humane_property(self.itemtype, n)) for n, v in self.data.items() if n != 'schema']
+        try:
+            data = self.data
+        except ValueError:
+            data = {}
 
-        if len(data) == 1:
-            # only name and schema?
+        data = [
+            (n, v, schema.humane_property(self.itemtype, n))
+            for n, v in data.items()
+            if (n not in ['schema', 'name', 'datePageModified']) and (not isinstance(v, schema.Property) or v.ptype != 'LongText')
+        ]
+
+        if len(data) == 0:
             return ''
 
         html = [
@@ -319,8 +399,7 @@ class PageOperationMixin(object):
 
         data = sorted(data, key=operator.itemgetter(2))
 
-        render_data_item = lambda itemname, itemvalue: \
-            u'<dd class="value value-%s"><span itemprop="%s">%s</span></dd>' % (itemname, itemname, itemvalue.render())
+        render_data_item = lambda itemname, itemvalue: u'<dd class="value value-%s"><span itemprop="%s">%s</span></dd>' % (itemname, itemname, itemvalue.render())
         for name, value, humane_name in data:
             html.append(u'<dt class="key key-%s">%s</dt>' % (name, humane_name))
             if type(value) == list:
@@ -343,9 +422,9 @@ class PageOperationMixin(object):
         # incoming links
         if len(inlinks) > 0:
             lines = [u'# Incoming Links']
-            for rel, links in inlinks.items():
+            for i, (rel, links) in enumerate(inlinks.items()):
                 itemtype, rel = rel.split('/')
-                lines.append(u'## %s' % schema.humane_property(itemtype, rel, True))
+                lines.append(u'## %s <span class="hidden">(%s %d)</span>' % (schema.humane_property(itemtype, rel, True), itemtype, i))
                 # remove dups and sort
                 links = list(set(links))
                 links.sort()
@@ -362,6 +441,15 @@ class PageOperationMixin(object):
             body_parts.append(u'\n'.join(lines))
             body_parts.append(u'* [More suggestions...](/+%s)\n{.more-suggestions}' % (cls.title_to_path(title)))
 
+        # other posts
+        if older_title or newer_title:
+            lines = [u'# Other Posts']
+            if newer_title:
+                lines.append(u'* {{.newer::newer}} [[%s]]\n{.noli}' % newer_title)
+            if older_title:
+                lines.append(u'* {{.older::older}} [[%s]]\n{.noli}' % older_title)
+            body_parts.append(u'\n'.join(lines))
+
         # remove yaml/schema block
         joined = u'\n'.join(body_parts)
         joined = re.sub(PageOperationMixin.re_yaml_schema, u'\n', joined)
@@ -377,9 +465,8 @@ class PageOperationMixin(object):
 
         # add structured data block
         rendered = rendered_data + rendered
-
         return rendered
-        #cls.sanitize_html(rendered)
+        #return cls.sanitize_html(rendered)
 
     @property
     def itemtype(self):
@@ -406,35 +493,15 @@ class PageOperationMixin(object):
         return 'http://schema.org/%s' % self.itemtype
 
     def can_read(self, user, default_acl=None, acl_r=None, acl_w=None):
-        default_acl = default_acl or wiki_settings.DEFAULT_CONFIG['service']['default_permissions']
-        default_acl = default_acl or {'read': ['all'], 'write': ['login'] }
-        acl_r = acl_r or self.acl_read or default_acl['read'] or []
-        acl_w = acl_w or self.acl_write or default_acl['write'] or []
-
-        if u'all' in acl_r or len(acl_r) == 0:
-            return True
-        elif user is not None and u'login' in acl_r:
-            return True
-        elif user is not None and (user.email in acl_r or user.email in acl_w):
-            return True
-        elif user and user.is_superuser:
-            return True
-        else:
-            return False
+        return acl.ACL(default_acl, self.acl_read, self.acl_write).can_read(user, acl_r, acl_w)
 
     def can_write(self, user, default_acl=None, acl_r=None, acl_w=None):
-        default_acl = default_acl or wiki_settings.DEFAULT_CONFIG['service']['default_permissions']
-        acl_w = acl_w or self.acl_write or default_acl['write'] or []
+        return acl.ACL(default_acl, self.acl_read, self.acl_write).can_write(user, acl_r, acl_w)
 
-        if (not self.can_read(user, default_acl, acl_r, acl_w)) and (user is None or user.email not in acl_w):
-            return False
-        elif 'all' in acl_w:
-            return True
-        elif (len(acl_w) == 0 or u'login' in acl_w) and user is not None:
-            return True
-        elif user is not None and user.email in acl_w:
-            return True
-        elif user and user.is_superuser:
-            return True
+    def _get_raw_data_value(self, value):
+        if type(value) == list:
+            return [self._get_raw_data_value(v) for v in value]
+        elif isinstance(value, schema.Property):
+            return value.pvalue
         else:
-            return False
+            return value

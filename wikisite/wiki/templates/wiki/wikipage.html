@@ -4,20 +4,6 @@
 {% block title %}{{ page.title }}{% endblock %}
 {% block head %}
     <link rel="canonical" href="http://{{ config.service.domain }}{{ page.absolute_url|escape }}"/>
-    {% if 'pt' in page.metadata %}
-    <link rel="stylesheet" href="/statics/css/reveal.css?ver={{ app.version }}">
-    <link rel="stylesheet" href="/statics/css/reveal-theme-simple.css?ver={{ app.version }}">
-    {% endif %}
-    {% if 'uml' in page.hashbangs %}
-    <link rel="stylesheet" href="/statics/css/jumly.css?ver={{ app.version }}">
-    {% endif %}
-
-    {% comment %}
-    {% if page.hashbangs|has_supported_language %}
-    <link rel="stylesheet" href="/statics/css/highlight/{{ config.highlight.style }}.css?ver={{ app.version }}">
-    {% endif %}
-    {% endcomment %}
-
     <meta name="description" content="{{ page.description|escape }}" />
 
     <!-- Open Graph properties { -->
@@ -130,7 +116,7 @@ window.fbAsyncInit = function() {
             </li>
 
             {% comment %}
-            {% if page.modifier and page.modifier.email() == config.admin.email %}
+            {% if page.modifier and page.modifier.email == config.admin.email %}
             <!-- Google authorship { -->
             <li style="display:none;">
                 <a href="{{ config.admin.gplus_url }}?rel=author">Google</a>
@@ -269,40 +255,22 @@ window.fbAsyncInit = function() {
 {% endblock %}
 
 {% block before_body_close %}
-    {% if 'pt' in page.metadata %}
-    <!-- Reveal.js for Presentation { -->
-    <script src="/statics/js/head.js?ver={{ app.version }}" type="text/javascript"></script>
-    <script src="/statics/js/reveal.js?ver={{ app.version }}" type="text/javascript"></script>
-    <script src="/statics/js/reveal-converter.js?ver={{ app.version }}" type="text/javascript"></script>
-    <!-- } Reveal.js for Presentation -->
-    {% endif %}
-
-    {% if 'dot' in page.hashbangs or 'dot/s' in page.hashbangs %}
-    <script src="/statics/js/viz.js?ver={{ app.version }}" type="text/javascript"></script>
-    <script src="/statics/js/viz-run.js?ver={{ app.version }}" type="text/javascript"></script>
-    {% endif %}
-
-    {% if 'uml' in page.hashbangs %}
-    <script src="/statics/js/coffee-script.js?ver={{ app.version }}" type="text/javascript"></script>
-    <script src="/statics/js/jumly.min.js?ver={{ app.version }}" type="text/javascript"></script>
-    <script src="/statics/js/jumly-run.js?ver={{ app.version }}" type="text/javascript"></script>
-    {% endif %}
-
-    {% if 'mathjax' in page.hashbangs %}
-    <script type="text/x-mathjax-config">
-    MathJax.Hub.Config({
-        displayAlign: "left"
-    });
-    </script>
-    <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-    {% endif %}
-
-    {% comment %}
-    {% if page.hashbangs|has_supported_language %}
-    <script src="/statics/js/highlight.pack.js?ver={{ app.version }}" type="text/javascript"></script>
-    <script src="/statics/js/highlight-run.js?ver={{ app.version }}" type="text/javascript"></script>
-    {% endif %}
-    {% endcomment %}
+    <div style="display: none">
+        <div class="ecogwiki-version">{{ app.version }}</div>
+        <ul class="page-metadata">
+            {% for md, value in page.metadata.items %}
+            <li class="key-{{ md }}" data-value="{{ value }}">
+                <span class="key">{{ md }}</span>
+                <span class="value">{{ value }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        <ul class="page-hashbang">
+            {% for hb in page.hashbangs %}
+            <li>{{ hb }}</li>
+            {% endfor %}
+        </ul>
+    </div>
 
     {% if page.revision == 0 %}
     <script type="text/javascript">

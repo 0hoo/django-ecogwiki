@@ -1,3 +1,4 @@
+{% load wiki_extras %}
 {% load staticfiles %}
 <!DOCTYPE html>
 <html {% block html_class %}{% endblock %} lang="ko">
@@ -56,7 +57,7 @@
 
     {% comment %}
     // Logged-in?
-    {% if user and user.email() == config.admin.email %}
+    {% if user and user.email == config.admin.email %}
     ga('set', 'dimension1', '2');
     {% elif user %}
     ga('set', 'dimension1', '1');
@@ -80,6 +81,8 @@
     </script>
     {% endif %}
     <!-- } Google Analytics -->
+    {% block before_head_closing %}
+    {% endblock %}
 </head>
 <body>
 
@@ -109,12 +112,15 @@
     </li>
     <li>
         {% if user.is_authenticated %}
+        <span class="user-email">{{ user.email }}</span>
         <a href="/accounts/info/" class="preferences">Account</a>
         <a href="/sp.preferences" class="preferences">Preferences</a>
         <a href="/accounts/logout/">Logout</a>
         {% else %}
+        <span class="user-email"></span>
         <a href="/accounts/login/">Login</a>
         {% endif %}
+        <span class="cur-user" style="display: none">{{ user|userpage }}</span>
     </li>
 </ul></div>
 
@@ -136,13 +142,17 @@
     {% block body %}{% endblock %}
 </div>
 
-{% if not is_local %}
-<script src="http://code.jquery.com/jquery-2.1.0-beta2.min.js"></script>
-{% else %}
-<script src="/static/js/jquery.js"></script>
-{% endif %}
 
-<script src="/static/js/main.js"></script>
+<script src="/static/js/jquery.js?ver={{ app.version }}"></script>
+<script src="/static/js/head.js?ver={{ app.version }}" type="text/javascript"></script>
+<script src="/static/js/main.js?ver={{ app.version }}"></script>
+<script src="/static/js/postprocessors.js?ver={{ app.version }}" type="text/javascript"></script>
+<script type="text/javascript">
+    $(function() {
+        main.run();
+        postprocessors.run(document.body);
+    });
+</script>
 
 {% block before_body_close %}{% endblock %}
 </body>

@@ -15,9 +15,45 @@
                 "DataType"
             ],
             "url": "http://www.ecogwiki.com/sp.schema/datatypes/ISBN"
+        },
+        "LongText": {
+            "ancestors": [
+                "DataType"
+            ],
+            "comment": "",
+            "comment_plain": "",
+            "id": "LongText",
+            "label": "Long text",
+            "properties": [],
+            "specific_properties": [],
+            "subtypes": [],
+            "supertypes": [
+                "DataType"
+            ],
+            "url": "http://www.ecogwiki.com/sp.schema/datatypes/LongText"
+        },
+        "EmbeddableURL": {
+            "ancestors": [
+                "DataType",
+                "URL"
+            ],
+            "comment": "",
+            "comment_plain": "",
+            "id": "EmbeddableURL",
+            "label": "Embeddable URL",
+            "properties": [],
+            "specific_properties": [],
+            "subtypes": [],
+            "supertypes": [
+                "URL"
+            ],
+            "url": "http://www.ecogwiki.com/sp.schema/datatypes/EmbeddableURL"
         }
     },
     "properties": {
+        "articleBody": {
+            "ranges": ["LongText"]
+        },
         "author": {
             "reversed_label": "Authored %s"
         },
@@ -33,11 +69,20 @@
         "deathDate": {
             "reversed_label": "%s Died"
         },
+        "longDescription": {
+            "label": "Long description",
+            "ranges": ["LongText"]
+        },
         "founder": {
             "reversed_label": "%s Founded"
         },
         "foundingDate": {
             "reversed_label": "%s Founded"
+        },
+        "image": {
+            "ranges": [
+                "EmbeddableURL"
+            ]
         },
         "isbn": {
             "ranges": [
@@ -61,6 +106,11 @@
         }
     },
     "types": {
+        "Thing": {
+            "properties": [
+                "longDescription"
+            ]
+        },
         "Person": {
             "plural_label": "People"
         }

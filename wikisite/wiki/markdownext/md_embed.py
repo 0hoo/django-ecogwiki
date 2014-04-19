@@ -27,6 +27,16 @@ p = re.compile(
     r'^(?P<slideshare><iframe.*?src="https?\://www\.slideshare\.net/slideshow/embed\_code/(?P<slideshare_vid>\d+?)".*?>\s*</iframe>\s*<div.+?</div>)$'
     r'|'
     r'^(?P<gcal><iframe.*?src="https?\://www\.google\.com/calendar/embed\?(?P<gcal_vid>.+?)".*?>\s*</iframe>)$'
+    r'|'
+    r'^(?P<googlemap>https?\://maps\.google\.com/(?P<googlemap_vid>.+?))$'
+    r'|'
+    r'^(?P<googlemap2>https?\://www\.google\.com/maps/(?P<googlemap2_vid>.+?))$'
+    r'|'
+    r'^(?P<googlemap3><iframe.*?src="https?\://maps\.google\.com/(?P<googlemap3_vid>.+?)".*?>\s*</iframe>)$'
+    r'|'
+    r'^(?P<navermap><table.*?td.*?><a href="(?P<navermap_url>http://map.naver.com.*?)"\s+.*><img src="(?P<navermap_imgsrc>http://.*?map.naver.com.*?)".*</a></td>.*</table>)$'
+    r'|'
+    r'^(?P<daummap><a href="(?P<daummap_url>http://map.daum.net.*?)"\s+.*<img.*src="(?P<daummap_imgsrc>http://map.*?.daum.net.*?)"\s+.*)$'
     r')'
 )
 
@@ -60,12 +70,28 @@ class EmbedPrepreprocessor(Preprocessor):
             return self._create_video(m, 'slideshare', 425, 355, 'http://www.slideshare.net/slideshow/embed_code/%s')
         elif m.group('gcal'):
             return self._create_video(m, 'gcal', 800, 600, 'http://www.google.com/calendar/embed?%s')
+        elif m.group('googlemap'):
+            return self._create_video(m, 'googlemap', 425, 350, 'http://maps.google.com/%s&output=embed')
+        elif m.group('googlemap2'):
+            return self._create_video(m, 'googlemap2', 425, 350, 'http://www.google.com/maps/%s&output=embed')
+        elif m.group('googlemap3'):
+            return self._create_video(m, 'googlemap3', 425, 350, 'http://maps.google.com/%s')
+        elif m.group('navermap'):
+            return self._create_video_without_iframe(m, 'navermap', 460, 340)
+        elif m.group('daummap'):
+            return self._create_video_without_iframe(m, 'daummap', 500, 350)
         else:
             raise ValueError('Should not reach here')
+
+    def _create_video_without_iframe(self, m, vtype, width, height):
+        url = m.group('%s_url' % vtype)
+        imgsrc = m.group('%s_imgsrc' % vtype)
+        return "<div class=\"video %s\"><a href=\"%s\"><img src=\"%s\"></a></div>" % (vtype, url, imgsrc)
 
     def _create_video(self, m, vtype, width, height, url):
         vid = m.group('%s_vid' % vtype)
         url = url % vid
+        url = url.replace('&amp;', '&')
 
         div = etree.Element('div')
         div.set('class', 'video %s' % vtype)

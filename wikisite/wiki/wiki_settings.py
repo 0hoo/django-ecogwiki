@@ -1,4 +1,4 @@
-VERSION = '0.0.1_20140117_1'
+VERSION = '0.0.1_20140407_0'
 
 DEFAULT_CONFIG = {
     'navigation': [
@@ -30,29 +30,5 @@ DEFAULT_CONFIG = {
             'read': ['all'],
             'write': ['login'],
         },
-    },
-    'highlight': {
-        'style': 'default',
-        'supported_languages': [
-            'sh',
-            'csharp',
-            'c++',
-            'css',
-            'coffeescript',
-            'diff',
-            'html',
-            'xml',
-            'json',
-            'java',
-            'javascript',
-            'makefile',
-            'markdown',
-            'objectivec',
-            'php',
-            'perl',
-            'python',
-            'ruby',
-            'sql',
-        ]
     }
 }

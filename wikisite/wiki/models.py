@@ -75,10 +75,10 @@ class SchemaDataIndex(models.Model):
         SchemaDataIndex.objects.filter(title=title).delete()
 
         # insert
-        entities = [cls(title=title, name=name, value=v.pvalue if isinstance(v, schema.Property) else v)
-                    for name, v in cls.data_as_pairs(data)]
-        for e in entities:
-            e.save()
+        for name, v in cls.data_as_pairs(data):
+            if not isinstance(v, schema.Property) or v.should_index():
+                i = SchemaDataIndex(title=title, name=name, value=(v.pvalue if isinstance(v, schema.Property) else v))
+                i.save()
 
     @classmethod
     def update_index(cls, title, old_data, new_data):
@@ -90,14 +90,16 @@ class SchemaDataIndex(models.Model):
 
         # delete
         for name, v in deletes:
-            indexes = SchemaDataIndex.objects.indexes(title, name, v)
-            for i in indexes:
-                i.delete()
+            if not isinstance(v, schema.Property) or v.should_index():
+                entities = SchemaDataIndex.objects.filter(title=title, name=name, value=unicode(v.pvalue if isinstance(v, schema.Property) else v))
+                for e in entities:
+                    e.delete()
 
         # insert
         for name, v in inserts:
-            i = SchemaDataIndex(title=title, name=name, value=(v.pvalue if isinstance(v, schema.Property) else v))
-            i.save()
+            if not isinstance(v, schema.Property) or v.should_index():
+                i = SchemaDataIndex(title=title, name=name, value=(v.pvalue if isinstance(v, schema.Property) else v))
+                i.save()
 
     @staticmethod
     def data_as_pairs(data):
@@ -114,12 +116,12 @@ class SchemaDataIndex(models.Model):
         return SchemaDataIndex.objects.filter(title=title)
 
     @classmethod
-    def query_titles(cls, name, value):
-        return [i.title for i in SchemaDataIndex.objects.filter(name=name, value=value)]
+    def query_titles(cls, name, v):
+        return [i.title for i in SchemaDataIndex.objects.filter(name=name, value=unicode(v.pvalue if isinstance(v, schema.Property) else v))]
 
     @classmethod
-    def has_match(cls, title, name, value):
-        return SchemaDataIndex.objects.filter(title=title, name=name, value=value).count() > 0
+    def has_match(cls, title, name, v):
+        return SchemaDataIndex.objects.filter(title=title, name=name, value=unicode(v.pvalue if isinstance(v, schema.Property) else v)).count() > 0
 
 
 class WikiPage(models.Model, PageOperationMixin):
@@ -174,10 +176,11 @@ class WikiPage(models.Model, PageOperationMixin):
         email = user.email if (user is not None and not user.is_anonymous()) else 'None'
         results = caching.get_wikiquery(q, email)
         if results is None:
-            page_query, attrs = search.parse_wikiquery(q)
+            page_query, attrs, sort_criteria = search.parse_wikiquery(q)
             titles = cls._evaluate_pages(page_query)
-            accessible_titles = WikiPage.get_titles(user).intersection(titles)
+            accessible_titles = sorted(WikiPage.get_titles(user).intersection(titles))
 
+            # evaluate
             results = []
             if attrs == [u'name']:
                 results += [{u'name': title} for title in accessible_titles]
@@ -185,6 +188,12 @@ class WikiPage(models.Model, PageOperationMixin):
                 for title in accessible_titles:
                     pagedata = WikiPage.get_by_title(title, follow_redirect=True).data
                     results.append(OrderedDict((attr, pagedata[attr] if attr in pagedata else None) for attr in attrs))
+
+            # sort: only use first criterion
+            if len(sort_criteria) > 0:
+                criterion = sort_criteria[0][0]
+                descending = sort_criteria[0][1] == '-'
+                results = sorted(results, key=lambda r: r[criterion].pvalue, reverse=descending)
 
             if len(results) == 1:
                 results = results[0]
@@ -433,6 +442,8 @@ class WikiPage(models.Model, PageOperationMixin):
 
     def update_content(self, content, base_revision, comment='', user=None, force_update=False, dont_create_rev=False,
                        partial='all'):
+        content = content.replace('\r\n', '\n')
+
         if partial == 'all':
             return self._update_content_all(content, base_revision, comment, user, force_update, dont_create_rev)
         else:
@@ -443,13 +454,22 @@ class WikiPage(models.Model, PageOperationMixin):
         if not force_update and self.body == body:
             return False
 
+        now = datetime.utcnow().replace(tzinfo=utc)
+
         # validate and prepare new contents
         new_data, new_md = self.validate_new_content(base_revision, body, user)
         new_body = self._merge_if_needed(base_revision, body)
 
         # get old data and metadata
-        old_md = self.metadata.copy()
-        old_data = self.data.copy()
+        try:
+            old_md = self.metadata.copy()
+        except ValueError:
+            old_md = {}
+
+        try:
+            old_data = self.data.copy()
+        except ValueError:
+            old_data = {}
 
         # delete caches
         caching.del_rendered_body(self.title)
@@ -470,7 +490,7 @@ class WikiPage(models.Model, PageOperationMixin):
         if not dont_create_rev:
             self.revision += 1
         if not force_update:
-            self.updated_at = datetime.utcnow().replace(tzinfo=utc)
+            self.updated_at = now
         self.save()
 
         # create revision
@@ -483,8 +503,8 @@ class WikiPage(models.Model, PageOperationMixin):
         self.update_links_and_data(old_md.get('redirect'), new_md.get('redirect'), old_data, new_data)
 
         # delete config cache
-        #if self.title == '.config':
-        #    caching.del_config()
+        if self.title == '.config':
+            caching.del_config()
 
         # delete title cache if it's a new page
         if self.revision == 1:
@@ -741,15 +761,17 @@ class WikiPage(models.Model, PageOperationMixin):
         # check data
         new_data = PageOperationMixin.parse_data(self.title, new_body, new_md['schema'])
         if any(type(value) == schema.InvalidProperty for value in new_data.values()):
-            raise ValueError('Invalid schema data')
+            invalid_keys = [key for key, value in new_data.iteritems() if type(value) == schema.InvalidProperty]
+            raise ValueError('Invalid schema data: %s' % ', '.join(invalid_keys))
 
         # check revision
         if self.revision < base_revision:
             raise ValueError('Invalid revision number: %d' % base_revision)
 
         # check headings
-        if not TocGenerator(md.convert(new_body)).validate():
-            raise ValueError("Duplicate paths not allowed")
+        invalid_reason = TocGenerator(md.convert(new_body)).is_invalid()
+        if invalid_reason:
+            raise ValueError(invalid_reason)
 
         return new_data, new_md
 
@@ -951,6 +973,20 @@ class WikiPage(models.Model, PageOperationMixin):
                                    key=operator.itemgetter(1),
                                    reverse=True)
         return OrderedDict(sorted_scoretable)
+
+    def get_preview_instance(self, preview_body):
+        page = PageOperationMixin()
+
+        page.body = preview_body
+        page.title = self.title
+        page.revision = self.revision
+        page.inlinks = self.inlinks
+        page.outlinks = self.outlinks
+        page.related_links = self.related_links
+        page.older_title = self.older_title
+        page.newer_title = self.newer_title
+
+        return page
 
     @property
     def hashbangs(self):

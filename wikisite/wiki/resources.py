@@ -5,7 +5,7 @@ import operator
 from itertools import groupby
 from collections import OrderedDict
 from pyatom import AtomFeed
-from models import WikiPage, UserPreferences
+from models import WikiPage, UserPreferences, ConflictError
 from django.http import HttpResponse, HttpResponseRedirect
 from representations import Representation, TemplateRepresentation, EmptyRepresentation, JsonRepresentation, template
 from .templatetags.wiki_extras import format_iso_datetime
@@ -89,10 +89,9 @@ class PageLikeResource(Resource):
 
     def represent_html_bodyonly(self, page):
         content = {
-            'title': page.title,
-            'body': page.rendered_body,
+            'page': page,
         }
-        return TemplateRepresentation(content, self.req, 'generic_bodyonly.html')
+        return TemplateRepresentation(content, self.req, 'wikipage_bodyonly.html')
 
     def represent_atom_default(self, page):
         content = render_atom(self.req, page.title, WikiPage.title_to_path(page.title),
@@ -122,6 +121,7 @@ class PageLikeResource(Resource):
             'page': page,
             'description': 'You don\'t have a permission',
             'errors': [],
+            'suggest_link': ('javascript:history.back();', 'Go back'),
         })
         self.res.write(html)
 
@@ -151,6 +151,49 @@ class PageResource(PageLikeResource):
         representation = self.get_representation(page)
         return representation.respond(self.res, head)
 
+    def post(self):
+        page = self.load()
+
+        if not page.can_write(self.req.user):
+            self._403(page)
+            return
+
+        new_body = self.req.POST['body']
+        comment = self.req.POST.get('comment', '')
+
+        view = self.req.GET.get('view', self.default_view)
+        restype = get_restype(self.req, 'html')
+
+        # POST to edit form, not content
+        if restype == 'html' and view == 'edit':
+            if page.revision == 0:
+                page.body = new_body
+            representation = self.get_representation(page)
+            representation.respond(self.res, head=False)
+            return
+
+        # POST to content
+        try:
+            page.update_content(page.body + new_body, page.revision, comment, self.req.user)
+            quoted_path = urllib2.quote(self.path.replace(' ', '_'))
+            if restype == 'html':
+                self.res.location = str('/' + quoted_path)
+            else:
+                self.res.location = str('/%s?_type=%s' % (quoted_path, restype))
+            self.res.status = 303
+            self.res['X-Message'] = 'Successfully updated.'
+        except ValueError as e:
+            html = template(self.req, 'error.html', {
+                'page': page,
+                'description': 'Cannot accept the data for following reasons',
+                'errors': [e.message],
+                'suggest_link': ('javascript:history.back();', 'Go back'),
+            })
+            self.res.status = 406
+            self.res['Content-Type'] = 'text/html; charset=utf-8'
+            self.res.write(html)
+        return self.res
+
     def put(self):
         page = self.load()
 
@@ -161,7 +204,13 @@ class PageResource(PageLikeResource):
         partial = self.req.GET.get('partial', 'all')
 
         if preview == '1':
-            pass
+            self.res.headers['Content-Type'] = 'text/html; charset=utf-8'
+            page = page.get_preview_instance(new_body)
+            html = template(self.req, 'wikipage_bodyonly.html', {
+                'page': page,
+            })
+            self.res.write(html)
+            return self.res
 
         try:
             page.update_content(new_body, revision, comment, self.req.user, partial=partial)
@@ -181,8 +230,23 @@ class PageResource(PageLikeResource):
                 self.res.write(json.dumps({'revision': page.revision}))
 
             return self.res
+        except ConflictError as e:
+            html = template(self.req, 'wikipage.edit.html', {'page': page, 'conflict': e})
+            self.res.status = 409
+            self.res.headers['Content-Type'] = 'text/html; charset=utf-8'
+            self.res.write(html)
+            return self.res
         except ValueError as e:
-            print e
+            html = template(self.req, 'error.html', {
+                'page': page,
+                'description': 'Cannot accept the data for following reasons',
+                'errors': [e.message],
+                'suggest_link': ('javascript:history.back();', 'Go back'),
+            })
+            self.res.status = 406
+            self.res['Content-Type'] = 'text/html; charset=utf-8'
+            self.res.write(html)
+            return self.res
 
     def delete(self):
         page = self.load()
@@ -490,6 +554,93 @@ class WikiqueryResource(Resource):
 
     def represent_json_default(self, content):
         return JsonRepresentation(content)
+
+
+class SchemaResource(Resource):
+    def __init__(self, req, path):
+        super(SchemaResource, self).__init__(req)
+        self.path = path
+
+    def load(self):
+        tokens = self.path.split('/')[1:]
+        if tokens[0] == 'types' and len(tokens) == 1:
+            return {'id': 'types', 'itemtypes': schema.get_itemtypes(), 'selectable_itemtypes': schema.get_selectable_itemtypes()}
+        elif tokens[0] == 'types':
+            return schema.get_schema(tokens[1])
+        elif tokens[0] == 'sctypes':
+            return schema.get_schema(tokens[1], self_contained=True)
+        elif tokens[0] == 'properties':
+            return schema.get_property(tokens[1])
+        elif tokens[0] == 'datatypes':
+            return schema.get_datatype(tokens[1])
+        else:
+            return None
+
+    def represent_html_default(self, data):
+        content = {
+            'title': data['id'],
+            'body': schema.to_html(data),
+        }
+        return TemplateRepresentation(content, self.req, 'generic.html')
+
+    def represent_html_bodyonly(self, data):
+        content = {
+            'title': data['id'],
+            'body': schema.to_html(data),
+        }
+        return TemplateRepresentation(content, self.req, 'generic_bodyonly.html')
+
+    def represent_json_default(self, data):
+        return JsonRepresentation(data)
+
+
+class SchemaResource(Resource):
+    def __init__(self, req, path):
+        super(SchemaResource, self).__init__(req)
+        self.path = path
+
+    def load(self):
+        tokens = self.path.split('/')[1:]
+        if tokens[0] == 'types' and len(tokens) == 1:
+            return {'id': 'types', 'itemtypes': schema.get_itemtypes(), 'selectable_itemtypes': schema.get_selectable_itemtypes()}
+        elif tokens[0] == 'types':
+            return schema.get_schema(tokens[1])
+        elif tokens[0] == 'sctypes':
+            return schema.get_schema(tokens[1], self_contained=True)
+        elif tokens[0] == 'properties':
+            return schema.get_property(tokens[1])
+        elif tokens[0] == 'datatypes':
+            return schema.get_datatype(tokens[1])
+        else:
+            return None
+
+    def represent_html_default(self, data):
+        content = {
+            'title': data['id'],
+            'body': schema.to_html(data),
+        }
+        return TemplateRepresentation(content, self.req, 'generic.html')
+
+    def represent_html_bodyonly(self, data):
+        content = {
+            'title': data['id'],
+            'body': schema.to_html(data),
+        }
+        return TemplateRepresentation(content, self.req, 'generic_bodyonly.html')
+
+    def represent_json_default(self, data):
+        return JsonRepresentation(data)
+
+
+def get_restype(req, default):
+    return str(req.GET.get('_type', default))
+
+
+def set_response_body(res, resbody, head):
+    if head:
+        res.headers['Content-Length'] = str(len(resbody))
+    else:
+        res.write(resbody)
 
 
 def render_atom(req, title, path, pages, include_content=False, use_published_date=False):

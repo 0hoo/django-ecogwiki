@@ -138,9 +138,30 @@ def get_titles(email):
 def del_titles():
     try:
         emails = get_recent_emails()
-        keys = ['model:titles:%s' % email
-                for email in emails + ['None']]
-        c.delete_multi(keys)
+        for email in emails + ['None']:
+            cache.delete('model:titles:%s' % email)
+    except:
+        pass
+
+
+def set_schema_selectable_itemtypes(value):
+    _set_cache('schema:selectable_itemtypes', value)
+
+
+def get_schema_selectable_itemtypes():
+    return cache.get('schema:selectable_itemtypes')
+
+
+def set_cardinalities(key, data):
+    try:
+        return _set_cache('schema:cardinalities:%s' % urllib.quote(key), data)
+    except:
+        pass
+
+
+def get_cardinalities(key):
+    try:
+        return cache.get('schema:cardinalities:%s' % urllib.quote(key))
     except:
         pass
 
@@ -151,6 +172,10 @@ def get_config():
 
 def set_config(value):
     _set_cache('model:config', value)
+
+
+def del_config():
+    cache.delete('model:config')
 
 
 def set_wikiquery(q, email, value):

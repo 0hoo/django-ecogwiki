@@ -41,7 +41,7 @@
     <h1>{{ page.title }}</h1>
 </header>
 
-<article class="preview"><div class="body"></div></article>
+<article id="wikibody_preview"><div class="body"></div></article>
 
 {% if conflict %}
 <div class="message infobox">
@@ -50,45 +50,123 @@
 </div>
 {% endif %}
 
-<ul class="editor-tab">
-    <li class="tab active plain" data-name="plain"><a href="#plain">Plain editor</a></li>
-</ul>
-<ul class="editor-content">
-    <li class="content active plain" data-name="plain">
-        <form method="POST" action="{{ page.absolute_url }}?_method=PUT" class="editform">
-            {% csrf_token %}
-            <input type="hidden" name="revision" value="{{ page.revision }}">
-            <input type="hidden" name="preview" value="0">
+<form method="POST" action="{{ page.absolute_url }}?_method=PUT" class="editform">
+    {% csrf_token %}
+    <input type="hidden" name="revision" value="{{ page.revision }}">
+    <input type="hidden" name="preview" value="0">
 
-            {% if conflict %}
-            <textarea name="body" placeholder="Body" autofocus="autofocus">{{ conflict.merged }}</textarea>
-            {% else %}
-            <textarea name="body" placeholder="Body" autofocus="autofocus">{{ page.body }}</textarea>
-            {% endif %}
-            <input name="comment" placeholder="Comment" class="comment" value="">
+    {% if conflict %}
+    <textarea name="body" placeholder="Body" autofocus="autofocus">{{ conflict.merged }}</textarea>
+    {% else %}
+    <textarea name="body" placeholder="Body" autofocus="autofocus">{{ page.body }}</textarea>
+    {% endif %}
 
-            <div class="actions">
-                <input type="submit" value="Save" class="btn btn-primary">
-                <input type="button" value="Preview" class="btn btn-preview">
+    {% if user and config.service.google_oauth2_web_client_id %}
+    <a class="upload-link main disabled" href="#">Click here to upload.</a>
+    {% endif %}
 
-                <input type="button" value="Delete" class="btn btn-delete">
-            </div>
-        </form>
-    </li>
-</ul>
+    <input name="comment" placeholder="Comment" class="comment" value="">
 
+    <div class="actions">
+        <input type="submit" value="Save" class="btn btn-primary">
+        <input type="button" value="Preview" class="btn btn-preview">
+
+        {% if users.is_superuser %}
+        <input type="button" value="Delete" class="btn btn-delete">
+        {% endif %}
+    </div>
+</form>
+
+{% if user and config.service.google_oauth2_web_client_id %}
+<form id="uploadForm" style="display: none">
+    <input type="text" id="google_oauth2_web_client_id" value="{{ config.service.google_oauth2_web_client_id }}">
+    <input type="text" id="google_drive_folder" value="{{ config.service.google_drive_folder }}">
+    <input type="file" id="file">
+</form>
+{% endif %}
 
 <form method="POST" action="{{ page.absolute_url }}?_method=DELETE" class="deleteform">
+    {% csrf_token %}
     <input type="submit" />
 </form>
 
 <form method="POST" action="{{ page.absolute_url }}" class="appendform">
+    {% csrf_token %}
     <textarea name="body" placeholder="Body" autofocus="autofocus"></textarea>
     <input type="submit" />
 </form>
-
 {% endblock %}
+
 {% block before_body_close %}
+    <script type="text/javascript" src="/static/js/js-yaml.min.js?ver={{ app.version }}"></script>
     <script type="text/javascript" src="/static/js/editor.js?ver={{ app.version }}"></script>
-    <script type="text/javascript">editorRun($);</script>
+    <script type="text/javascript">
+        var $curUser = $('.cur-user .user');
+        var ed = new editor.Editor(
+            document.querySelector('.editform textarea'),
+            function() {
+
+            },
+            function(callback) {
+                $.get('/sp.schema/types?_type=json', function(data) {callback(data['selectable_itemtypes']);});
+            },
+            function(itemtype, callback) {
+                $.get('/sp.schema/sctypes/' + itemtype + '?_type=json', function(data) {callback(data);});
+            },
+            $('header h1').text(),
+            $curUser.data('userpage'),
+            $curUser.data('email')
+        );
+
+        /* Delete */
+        $('.btn-delete').on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            if(!window.confirm('Are you sure?')) return;
+            $.post($('.deleteform').attr('action'), {}, function() {
+                window.location = window.location.pathname;
+            });
+        });
+
+        /* Preview */
+        $('.btn-preview').on('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            $('#wikibody_preview').show();
+
+            var $form = $('.editform');
+            $form.find('input[name="preview"]').val('1');
+            ed.updateTextarea();
+            var formdata = $form.serialize();
+            $form.find('input[name="preview"]').val(0);
+
+            $.post('?_method=PUT', formdata, function(data) {
+                var html = $('<div>').append(jQuery.parseHTML(data)).find('.wrap').html();
+                var previewEl = document.querySelector('#wikibody_preview .body');
+                previewEl.innerHTML = html;
+                postprocessors.run(previewEl);
+            });
+        });
+    </script>
+
+    {% if user and config.service.google_oauth2_web_client_id %}
+    <script type="text/javascript" src="/statics/js/upload.js?ver={{ app.version }}"></script>
+    <script type="text/javascript">
+    function _gapiLoaded() {
+        gapi.client.load('drive', 'v2', function() {
+            var $clickedLink = null;
+
+            var oauthClientId = $('#google_oauth2_web_client_id').val();
+            var userName = $('.user-email').text().split('@')[0];
+            var gdriveFolder = $('#google_drive_folder').val().replace(/\{username\}/, userName);
+            var uploader = new upload.GDriveUploader(gapi, oauthClientId, gdriveFolder);
+            uploader.prepareUpload();
+            ed.setUploader(uploader);
+        });
+    }
+    </script>
+    <script type="text/javascript" src="https://apis.google.com/js/client.js?onload=_gapiLoaded"></script>
+    {% endif %}
 {% endblock %}

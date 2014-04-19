@@ -1,8 +1,10 @@
+import collections
 import os
 import re
 import sys
 import json
 import operator
+from datetime import date, datetime
 from markdownext import md_wikilink
 import caching
 
@@ -28,20 +30,21 @@ def render_dict(o):
     if len(o) == 1:
         return to_html(o.values()[0])
 
-    html = ['<dl class="wq wq-dict">']
+    html = [u'<dl class="wq wq-dict">']
     for key, value in o.items():
-        html.append('<dt class="wq-key-%s">%s</dt>' % (key, key))
-        html.append('<dd class="wq-value-%s">%s</dd>' % (key, to_html(value)))
-    html.append('</dl>')
+        html.append(u'<dt class="wq-key-%s">%s</dt>' % (key, key))
+        html.append(u'<dd class="wq-value-%s">%s</dd>' % (key, to_html(value)))
+    html.append(u'</dl>')
 
     return '\n'.join(html)
 
 
 def render_list(o):
     return '\n'.join(
-        ['<ul class="wq wq-list">'] +
-        ['<li>%s</li>' % to_html(value) for value in o] +
-        ['</ul>'])
+        [u'<ul class="wq wq-list">'] +
+        [u'<li>%s</li>' % to_html(value) for value in o] +
+        [u'</ul>']
+    )
 
 
 def get_legacy_spellings():
@@ -67,15 +70,65 @@ def get_schema_set():
                 new_schema = {}
 
         schema_set = _merge_schema_set(new_schema, schema_set)
+
+        if 'ui' not in schema_set:
+            schema_set['ui'] = {'selectableTypes': []}
+
     caching.set_schema_set(schema_set)
     return schema_set
 
-def get_schema(itemtype):
+
+def get_sc_schema(itemtype):
+    schema = get_schema(itemtype).copy()
+
+    # extend properties to include cardinalities and type infos
+    props = collections.OrderedDict()
+    for p in schema['properties']:
+        props[p] = {
+            'cardinality': get_cardinality(itemtype, p),
+            'type': get_property(p)
+        }
+    schema['properties'] = props
+
+    # remove specific properties which are redundent
+    del schema['specific_properties']
+
+    return schema
+
+
+def get_schema(itemtype, self_contained=False):
+    if self_contained:
+        return get_sc_schema(itemtype)
+
     item = caching.get_schema(itemtype)
     if item is not None:
         return item
 
     item = get_schema_set()['types'][itemtype]
+
+    # populate missing fields
+    if 'url' not in item:
+        item['url'] = '/sp.schema/types/%s' % itemtype
+    if 'id' not in item:
+        item['id'] = itemtype
+    if 'label' not in item:
+        item['label'] = item['id']
+    if 'comment' not in item:
+        item['comment'] = item['label']
+    if 'comment_plain' not in item:
+        item['comment_plain'] = item['comment']
+    if 'subtypes' not in item:
+        item['subtypes'] = []
+    if 'ancestors' not in item:
+        # collect ancestors
+        ancestors = []
+        parent = item
+        while len(parent['supertypes']) > 0:
+            parent_itemtype = parent['supertypes'][0]
+            ancestors.append(parent_itemtype)
+            parent = get_schema(parent_itemtype)
+        ancestors.reverse()
+        item['ancestors'] = ancestors
     if 'plural_label' not in item:
         if item['label'][-2:] in ['ay', 'ey', 'iy', 'oy', 'uy', 'wy']:
             item['plural_label'] = u'%ss' % item['label']
@@ -91,21 +144,22 @@ def get_schema(itemtype):
         item['properties'] = []
 
     for stype in item['supertypes']:
-        item['properties'] += get_schema(stype)['properties']
-    item['properties'] = list(set(item['properties']))
+        super_props = [p for p in get_schema(stype)['properties'] if p not in item['properties']]
+        item['properties'] += super_props
 
     # remove legacy spellings
-    legacy_spellings = get_legacy_spellings()
-    props = set(item['properties']).difference(legacy_spellings)
+    legacy_spellings = set(get_legacy_spellings())
+
+    item['properties'] = [p for p in item['properties'] if p not in legacy_spellings]
     sprops = set(item['specific_properties']).difference(legacy_spellings)
 
-    # merge specific_properties into properties
-    item['properties'] = sorted(list(props.union(sprops)))
-    item['specific_properties'] = sorted(list(sprops))
+    # merge specific_properties into properties and sort
+    item['properties'] += [p for p in sprops if p not in item['properties']]
+    item['properties'] = sorted(item['properties'])
+    item['specific_properties'] = list(sprops)
 
     caching.set_schema(itemtype, item)
     return item
-
 
 def _merge_schema_set(addon, schema_set):
     if schema_set is None:
@@ -140,6 +194,10 @@ def _merge_schema_set(addon, schema_set):
 
             types[k].update(v)
 
+    # and ui
+    if 'ui' in addon:
+        schema_set['ui'] = addon['ui']
+
     return schema_set
 
 
@@ -152,8 +210,23 @@ def get_property(prop_name):
         return prop
 
     prop = get_schema_set()['properties'][prop_name]
+
+    # populate missing fields
+    if 'domains' not in prop:
+        prop['domains'] = ['Thing']
+    if 'ranges' not in prop:
+        prop['ranges'] = ['Text']
+    if 'id' not in prop:
+        prop['id'] = prop_name
+    if 'label' not in prop:
+        prop['label'] = prop['id']
+    if 'comment' not in prop:
+        prop['comment'] = prop['label']
+    if 'comment_plain' not in prop:
+        prop['comment_plain'] = prop['comment']
     if 'reversed_label' not in prop:
         prop['reversed_label'] = '[%%s] %s' % prop['label']
+
     caching.set_schema_property(prop_name, prop)
     return prop
 
@@ -181,13 +254,37 @@ def humane_property(itemtype, prop, rev=False):
 
 
 def get_datatype(type_name):
-    datatype = caching.get_schema_datatype(type_name)
-    if datatype is not None:
-        return datatype
+    dtype = caching.get_schema_datatype(type_name)
+    if dtype is not None:
+        return dtype
 
-    datatype = get_schema_set()['datatypes'][type_name]
-    caching.set_schema_datatype(type_name, datatype)
-    return datatype
+    dtype = get_schema_set()['datatypes'][type_name]
+
+    # populate missing fields
+    if 'url' not in dtype:
+        dtype['url'] = '/sp.schema/datatypes/%s' % type_name
+    if 'properties' not in dtype:
+        dtype['properties'] = []
+    if 'specific_properties' not in dtype:
+        dtype['specific_properties'] = []
+    if 'supertypes' not in dtype:
+        dtype['supertypes'] = ['DataType']
+    if 'subtypes' not in dtype:
+        dtype['subtypes'] = []
+    if 'id' not in dtype:
+        dtype['id'] = type_name
+    if 'label' not in dtype:
+        dtype['label'] = dtype['id']
+    if 'comment' not in dtype:
+        dtype['comment'] = dtype['label']
+    if 'comment_plain' not in dtype:
+        dtype['comment_plain'] = dtype['comment']
+    if 'ancestors' not in dtype:
+        dtype['ancestors'] = dtype['supertypes']
+
+    caching.set_schema_datatype(type_name, dtype)
+    return dtype
+
 
 
 def get_cardinality(itemtype, prop_name):
@@ -200,9 +297,15 @@ def get_cardinality(itemtype, prop_name):
 
 
 def get_cardinalities(itemtype):
-    item = get_schema(itemtype)
-    props = set(item['properties'] + item['specific_properties'])
-    return dict((pname, get_cardinality(itemtype, pname)) for pname in props)
+    result = caching.get_cardinalities(itemtype)
+    if result is not None:
+        return result
+
+    properties = get_schema(itemtype)['properties']
+    properties_dict = dict([(pname, get_cardinality(itemtype, pname)) for pname in properties])
+
+    caching.set_cardinalities(itemtype, properties_dict)
+    return properties_dict
 
 
 def get_itemtypes():
@@ -210,8 +313,32 @@ def get_itemtypes():
     if itemtypes is not None:
         return itemtypes
 
-    itemtypes = sorted(get_schema_set()['types'].keys())
+    itemtypes = sorted(
+        [(k, v['label']) for k, v in get_schema_set()['types'].items()],
+        key=operator.itemgetter(0)
+    )
+
     caching.set_schema_itemtypes(itemtypes)
+    return itemtypes
+
+
+def get_selectable_itemtypes():
+    itemtypes = caching.get_schema_selectable_itemtypes()
+    if itemtypes is not None:
+        return itemtypes
+
+    all_itemtypes = get_schema_set()['types']
+    selectable_itemtypes = get_schema_set()['ui']['selectableTypes']
+
+    if len(selectable_itemtypes):
+        itemtypes = [(k, all_itemtypes[k]['label']) for k in selectable_itemtypes]
+    else:
+        itemtypes = sorted(
+            [(k, v['label']) for k, v in all_itemtypes.items()],
+            key=operator.itemgetter(0)
+        )
+
+    caching.set_schema_selectable_itemtypes(itemtypes)
     return itemtypes
 
 
@@ -321,6 +448,9 @@ class Property(object):
     def is_wikilink(self):
         return False
 
+    def should_index(self):
+        return True
+
     def render(self):
         return self.pvalue
 
@@ -331,6 +461,9 @@ class InvalidProperty(Property):
 
     def render(self):
         return u'<span class="error">%s</span>' % self.pvalue
+
+    def should_index(self):
+        return False
 
 
 class ThingProperty(Property):
@@ -362,12 +495,18 @@ class TypeProperty(Property):
 class BooleanProperty(TypeProperty):
     def __init__(self, itemtype, ptype, pname, pvalue):
         super(BooleanProperty, self).__init__(itemtype, ptype, pname, pvalue)
-        if pvalue.lower() in ('1', 'yes', 'true'):
+        if type(pvalue) == str or type(pvalue) == unicode:
+            if pvalue.lower() in ('1', 'yes', 'true'):
+                pvalue = True
+            elif pvalue.lower() in ('0', 'no', 'false'):
+                pvalue = False
+            else:
+                raise ValueError('Invalid boolean: %s' % pvalue)
+
+        if pvalue:
             self.value = True
-        elif pvalue.lower() in ('0', 'no', 'false'):
-            self.value = False
         else:
-            raise ValueError('Invalid boolean: %s' % pvalue)
+            self.value = False
 
 
 class TextProperty(TypeProperty):
@@ -385,43 +524,76 @@ class TextProperty(TypeProperty):
             return super(TextProperty, self).render()
 
 
+class LongTextProperty(TextProperty):
+    def __init__(self, itemtype, ptype, pname, pvalue):
+        super(LongTextProperty, self).__init__(itemtype, ptype, pname, pvalue)
+        self.value = pvalue
+
+    def is_wikilink(self):
+        return False
+
+    def render(self):
+        return super(LongTextProperty, self).render()
+
+    def should_index(self):
+        return False
+
+
 class NumberProperty(TypeProperty):
     def __init__(self, itemtype, ptype, pname, pvalue):
         super(NumberProperty, self).__init__(itemtype, ptype, pname, pvalue)
-        try:
-            if pvalue.find('.') == -1:
-                self.value = int(pvalue)
-            else:
-                self.value = float(pvalue)
-        except ValueError:
-            raise ValueError('Invalid number: %s' % pvalue)
+        if type(pvalue) == str or type(pvalue) == unicode:
+            try:
+                if pvalue.find('.') == -1:
+                    pvalue = int(pvalue)
+                else:
+                    pvalue = float(pvalue)
+            except ValueError:
+                raise ValueError('Invalid number: %s' % pvalue)
+
+        self.value = pvalue
 
 
 class IntegerProperty(NumberProperty):
     def __init__(self, itemtype, ptype, pname, pvalue):
         super(IntegerProperty, self).__init__(itemtype, ptype, pname, pvalue)
 
-        try:
-            self.value = int(pvalue)
-        except ValueError:
-            raise ValueError('Invalid integer: %s' % pvalue)
-        if self.value != float(pvalue):
-            raise ValueError('Invalid integer: %s' % pvalue)
+        if type(pvalue) == str or type(pvalue) == unicode:
+            try:
+                pvalue_conv = int(pvalue)
+            except ValueError:
+                raise ValueError('Invalid integer: %s' % pvalue)
+            if pvalue_conv != float(pvalue):
+                raise ValueError('Invalid integer: %s' % pvalue)
+            pvalue = pvalue_conv
+
+        self.value = pvalue
 
 
 class FloatProperty(NumberProperty):
     def __init__(self, itemtype, ptype, pname, pvalue):
         super(FloatProperty, self).__init__(itemtype, ptype, pname, pvalue)
 
-        try:
-            self.value = float(pvalue)
-        except ValueError:
-            raise ValueError('Invalid float: %s' % pvalue)
+        if type(pvalue) == str or type(pvalue) == unicode:
+            try:
+                pvalue = float(pvalue)
+            except ValueError:
+                raise ValueError('Invalid float: %s' % pvalue)
+
+        self.value = pvalue
 
 
-class DateTimeProperty(TextProperty):
-    # TODO implement this (shouldn't inherit from TextProperty)
-    pass
+class DateTimeProperty(TypeProperty):
+    def __init__(self, itemtype, ptype, pname, pvalue):
+        super(TypeProperty, self).__init__(itemtype, ptype, pname, pvalue)
+        if isinstance(pvalue, datetime):
+            self.pvalue = pvalue.strftime("%Y-%m-%d %H:%M:%S")
+
+    def __eq__(self, o):
+        return super(DateTimeProperty, self).__eq__(o) and o.pvalue == self.pvalue
+
+    def is_wikilink(self):
+        return False
 
 
 class TimeProperty(TextProperty):
@@ -439,12 +611,22 @@ class URLProperty(TypeProperty):
             raise ValueError('Invalid URL: %s' % pvalue)
         self.value = pvalue
 
+    def render(self):
+        return u'<a href="%s" class="url" itemprop="url">%s</a>' % (self.value, self.value)
+
+
+class EmbeddableURLProperty(URLProperty):
+    def render(self):
+        return u'<img src="%s" class="embeddableUrl" itemprop="url">' % self.value
+
 
 class DateProperty(TypeProperty):
     P_DATE = ur'(?P<y>\d+)(-(?P<m>(\d\d|\?\?))-(?P<d>(\d\d|\?\?)))?( (?P<bce>BCE))?'
 
     def __init__(self, itemtype, ptype, pname, pvalue):
         super(DateProperty, self).__init__(itemtype, ptype, pname, pvalue)
+        if isinstance(pvalue, date):
+            pvalue = pvalue.strftime("%Y-%m-%d")
         m = re.match(DateProperty.P_DATE, pvalue)
         if m is None:
             raise ValueError('Invalid value: %s' % pvalue)
@@ -502,6 +684,7 @@ class ISBNProperty(TypeProperty):
 
 PRIORITY = {
     ISBNProperty: 1,
+    EmbeddableURLProperty: 1,
     URLProperty: 1,
 
     DateProperty: 2,
@@ -514,12 +697,14 @@ PRIORITY = {
     FloatProperty: 3,
     NumberProperty: 3,
 
-    TextProperty: 4,
+    LongTextProperty: 4,
 
-    TypeProperty: 5,
+    TextProperty: 5,
 
-    ThingProperty: 6,
-    InvalidProperty: 6,
+    TypeProperty: 6,
 
-    Property: 7,
+    ThingProperty: 7,
+    InvalidProperty: 7,
+
+    Property: 8,
 }

@@ -3,12 +3,13 @@ from django.test import TestCase
 from .. import schema
 from .. import caching
 from ..page_operation_mixin import PageOperationMixin
-from ..models import SchemaDataIndex
+from ..models import SchemaDataIndex, WikiPage
 from . import WikiTestCase
 
-class SchemaTest(TestCase):
+
+class LabelTest(WikiTestCase):
     def setUp(self):
-        super(SchemaTest, self).setUp()
+        super(LabelTest, self).setUp()
 
     def test_get_plural_label(self):
         self.assertEqual(u'Creative Works', schema.get_schema('CreativeWork')['plural_label'])
@@ -27,33 +28,54 @@ class SchemaTest(TestCase):
         self.assertEqual(u'Date Published', schema.get_property('datePublished')['label'])
         self.assertEqual(u'Published %s', schema.get_property('datePublished')['reversed_label'])
 
-    def test_legacy_spells(self):
-        self.assertRaises(KeyError, schema.get_property, 'contactPoints')
-        self.assertTrue('awards' not in schema.get_schema('Person')['properties'])
-
     def test_incoming_links(self):
         self.assertEqual(u'Related People', schema.humane_property('Person', 'relatedTo', True))
         self.assertEqual(u'Children (People)', schema.humane_property('Person', 'parent', True))
-
-    def test_datatype(self):
-        self.assertEqual('Boolean', schema.get_datatype('Boolean')['label'])
-
-    def test_custom_datatype(self):
-        isbn = schema.get_datatype('ISBN')
-        self.assertEqual(['DataType'], isbn['ancestors'])
-
-    def test_get_itemtypes(self):
-        itemtypes = schema.get_itemtypes()
-        self.assertEqual(list, type(itemtypes))
-        self.assertEqual('APIReference', itemtypes[0])
-        self.assertEqual('Zoo', itemtypes[-1])
 
 
 class CustomTypeAndPropertyTest(TestCase):
     def setUp(self):
         super(CustomTypeAndPropertyTest, self).setUp()
         caching.flush_all()
-        schema.SCHEMA_TO_LOAD.append('schema-custom.json.sample')
+        schema.SCHEMA_TO_LOAD.append({
+            "datatypes": {
+            },
+            "properties": {
+                "politicalParty": {
+                    "comment": "Political party.",
+                    "comment_plain": "Political party.",
+                    "domains": [
+                        "Thing"
+                    ],
+                    "id": "politicalParty",
+                    "label": "Political Party",
+                    "reversed_label": "%s",
+                    "ranges": [
+                        "Text"
+                    ]
+                }
+            },
+            "types": {
+                "Politician": {
+                    "ancestors": [
+                        "Thing",
+                        "Person"
+                    ],
+                    "comment": "",
+                    "comment_plain": "",
+                    "id": "Politician",
+                    "label": "Politician",
+                    "specific_properties": [
+                        "politicalParty"
+                    ],
+                    "subtypes": [],
+                    "supertypes": [
+                        "Person"
+                    ],
+                    "url": "http://www.ecogwiki.com/sp.schema/types/Politician"
+                }
+            }
+        })
         self.person = schema.get_schema('Person')
         self.politician = schema.get_schema('Politician')
 
@@ -76,6 +98,61 @@ class CustomTypeAndPropertyTest(TestCase):
         politician = set(schema.get_schema('Politician')['properties'])
         self.assertEqual(set(), person.difference(politician))
         self.assertEqual({u'politicalParty'}, politician.difference(person))
+
+
+class SimpleCustomTypeAndPropertyTest(TestCase):
+    def setUp(self):
+        super(SimpleCustomTypeAndPropertyTest, self).setUp()
+        caching.flush_all()
+        schema.SCHEMA_TO_LOAD.append({
+            "datatypes": {
+                "ISBN2": {
+                    "comment": "ISBN 2",
+                },
+            },
+            "properties": {
+                "politicalParty": {
+                    "comment": "A political party.",
+                }
+            },
+            "types": {
+                "Politician": {
+                    "supertypes": ["Person"],
+                    "specific_properties": ["politicalParty"],
+                    "comment": "A political party.",
+                }
+            }
+        })
+        self.dtype = schema.get_datatype('ISBN2')
+        self.item = schema.get_schema('Politician')
+        self.prop = schema.get_property('politicalParty')
+
+    def tearDown(self):
+        schema.SCHEMA_TO_LOAD = schema.SCHEMA_TO_LOAD[:-1]
+        super(SimpleCustomTypeAndPropertyTest, self).tearDown()
+
+    def test_populate_omitted_item_fields(self):
+        self.assertEqual('/sp.schema/types/Politician', self.item['url'])
+        self.assertEqual(["Thing", "Person"], self.item['ancestors'])
+        self.assertEqual('Politician', self.item['id'])
+        self.assertEqual('A political party.', self.item['comment_plain'])
+        self.assertEqual([], self.item['subtypes'])
+
+    def test_populate_omitted_datatype_fields(self):
+        self.assertEqual('/sp.schema/datatypes/ISBN2', self.dtype['url'])
+        self.assertEqual(["Thing", "Person"], self.item['ancestors'])
+        self.assertEqual([], self.dtype['properties'])
+        self.assertEqual([], self.dtype['specific_properties'])
+        self.assertEqual(['DataType'], self.dtype['ancestors'])
+        self.assertEqual(['DataType'], self.dtype['supertypes'])
+        self.assertEqual([], self.dtype['subtypes'])
+        self.assertEqual('ISBN2', self.dtype['id'])
+        self.assertEqual('ISBN 2', self.dtype['comment_plain'])
+
+    def test_populate_omitted_property_fields(self):
+        self.assertEqual(["Thing"], self.prop['domains'])
+        self.assertEqual(["Text"], self.prop['ranges'])
+        self.assertEqual('A political party.', self.item['comment_plain'])
 
 
 class EnumerationTest(TestCase):
@@ -175,12 +252,32 @@ class SchemaPathTest(TestCase):
                          schema.get_itemtype_path('Article'))
 
 
+class SectionTest(TestCase):
+    def test_default_section(self):
+        data = PageOperationMixin.parse_sections(u'Hello')
+        self.assertEqual({'articleBody'}, set(data.keys()))
+        self.assertEqual(u'Hello', data['articleBody'])
+
+    def test_specifying_default_section(self):
+        data = PageOperationMixin.parse_sections(u'Hello', u'longText')
+        self.assertEqual({'longText'}, set(data.keys()))
+        self.assertEqual(u'Hello', data['longText'])
+
+    def test_additional_sections(self):
+        data = PageOperationMixin.parse_sections(u'Hello\n\nsection1::---\n\nHello\n\nthere\n\nsection2::---\n\nGood\n\nbye\n')
+        self.assertEqual({'articleBody', 'section1', 'section2'}, set(data.keys()))
+        self.assertEqual(u'Hello', data['articleBody'])
+        self.assertEqual(u'Hello\n\nthere', data['section1'])
+        self.assertEqual(u'Good\n\nbye', data['section2'])
+
+
 class EmbeddedSchemaDataTest(TestCase):
     def test_no_data(self):
         data = PageOperationMixin.parse_data(u'Hello', u'Hello')
-        self.assertEquals(['name', 'schema'], data.keys())
+        self.assertEqual(['articleBody', 'name', 'schema'], data.keys())
         self.assertEqual(u'Hello', data['name'].pvalue)
         self.assertEqual(u'Thing/CreativeWork/Article/', data['schema'].pvalue)
+        self.assertEqual(u'Hello', data['articleBody'].pvalue)
 
     def test_author_and_isbn(self):
         data = PageOperationMixin.parse_data(u'Hello', u'[[author::AK]]\n{{isbn::1234567890}}', u'Book')
@@ -199,13 +296,24 @@ class YamlSchemaDataTest(WikiTestCase):
     def test_yaml(self):
         page = self.update_page(u'.schema Book\n\n    #!yaml/schema\n    author: AK\n    isbn: "1234567890"\n\nHello', u'Hello')
         self.assertEqual({u'Book/author': [u'AK']}, page.outlinks)
-        self.assertEquals({'name': u'Hello', 'isbn': u'1234567890', 'schema': u'Thing/CreativeWork/Book/', 'author': u'AK'},
-                          dict((k, v.pvalue) for k, v in page.data.items()))
+
+        data_items = dict((k, v.pvalue) for k, v in page.data.items())
+        del data_items['datePageModified']
+
+        self.assertEqual(
+            {'name': u'Hello', 'isbn': u'1234567890', 'schema': u'Thing/CreativeWork/Book/', 'author': u'AK', 'longDescription': u'Hello'},
+            data_items
+        )
+
+    def test_re_match(self):
+        body = u'''\t#!yaml/schema\n    url: "http://anotherfam.kr/"\n\n\n[[\uc81c\uc791\ub450\ub808]]\ub97c ...\n'''
+        data = PageOperationMixin.parse_schema_yaml(body)
+        self.assertEqual(data['url'], 'http://anotherfam.kr/')
 
     def test_list_value(self):
         page = self.update_page(u'.schema Book\n\n    #!yaml/schema\n    author: [AK, TK]\n\nHello', u'Hello')
         self.assertEqual({u'Book/author': [u'AK', u'TK']}, page.outlinks)
-        self.assertEquals([u'AK', u'TK'], [v.pvalue for v in page.data['author']])
+        self.assertEqual([u'AK', u'TK'], [v.pvalue for v in page.data['author']])
 
     def test_mix_with_embedded_data(self):
         page = self.update_page(u'.schema Book\n\n    #!yaml/schema\n    author: [AK, TK]\n\n{{isbn::1234567890}}\n\n[[author::JK]]', u'Hello')
@@ -217,38 +325,60 @@ class YamlSchemaDataTest(WikiTestCase):
     def test_no_duplications(self):
         page = self.update_page(u'.schema Book\n\n    #!yaml/schema\n    author: [AK, TK]\n\n{{isbn::1234567890}}\n\n[[author::TK]]')
         self.assertEqual({u'Book/author': [u'AK', u'TK']}, page.outlinks)
-        self.assertEquals([u'AK', u'TK'], [v.pvalue for v in page.data['author']])
+        self.assertEqual([u'AK', u'TK'], [v.pvalue for v in page.data['author']])
 
     def test_yaml_block_should_not_be_rendered(self):
         page = self.update_page(u'.schema Book\n\n    #!yaml/schema\n    author: AK\n    isbn: "1234567890"\n\nHello')
         self.assertEqual(-1, page.rendered_body.find(u'#!yaml/schema'))
+
+    def test_tab_and_space_mixed(self):
+        body = u'\t#!yaml/schema\n    alternateName: hi\n\turl: http://x.com\n    name: "Hello"\n'
+        data = PageOperationMixin.parse_schema_yaml(body)
+        self.assertEqual(data['name'], u'Hello')
+        self.assertEqual(data['alternateName'], u'hi')
+        self.assertEqual(data['url'], u'http://x.com')
+
+    def test_yaml_indent_catching_only_space(self):
+        body = u'''\n\t#!yaml/schema\n    url: "http://x.com"\n\nHello\n'''
+        matched = PageOperationMixin.re_yaml_schema.search(body).group(0)
+        self.assertTrue(matched.startswith('\t'))
+
+    def test_rawdata(self):
+        page = self.update_page(u'.schema Book\n\n    #!yaml/schema\n    author: [AK, TK]\n', u'Hello')
+        raw = page.rawdata
+        self.assertEqual(u'Hello', raw['name'])
+        self.assertEqual([u'AK', u'TK'], raw['author'])
 
 
 class SchemaIndexTest(WikiTestCase):
     def setUp(self):
         super(SchemaIndexTest, self).setUp()
 
-    def test_schema_index_create(self):
+    def test_create(self):
         self.update_page(u'.schema Book\n[[author::AK]]\n{{isbn::1234567890}}\n[[datePublished::2013]]', u'Hello')
-        self.assertTrue(SchemaDataIndex.objects.has_match(u'Hello', u'author', u'AK'))
-        self.assertTrue(SchemaDataIndex.objects.has_match(u'Hello', u'isbn', u'1234567890'))
-        self.assertTrue(SchemaDataIndex.objects.has_match(u'Hello', u'datePublished', u'2013'))
+        self.assertTrue(SchemaDataIndex.has_match(u'Hello', u'author', u'AK'))
+        self.assertTrue(SchemaDataIndex.has_match(u'Hello', u'isbn', u'1234567890'))
+        self.assertTrue(SchemaDataIndex.has_match(u'Hello', u'datePublished', u'2013'))
 
-    def test_schema_index_update(self):
+    def test_update(self):
         self.update_page(u'.schema Book\n[[author::AK]]\n{{isbn::1234567890}}\n[[datePublished::2013]]', u'Hello')
         self.update_page(u'.schema Book\n[[author::AK]]\n{{isbn::1234567899}}\n[[dateModified::2013]]', u'Hello')
-        self.assertTrue(SchemaDataIndex.objects.has_match(u'Hello', u'author', u'AK'))
-        self.assertFalse(SchemaDataIndex.objects.has_match(u'Hello', u'isbn', u'1234567890'))
-        self.assertTrue(SchemaDataIndex.objects.has_match(u'Hello', u'isbn', u'1234567899'))
-        self.assertFalse(SchemaDataIndex.objects.has_match(u'Hello', u'datePublished', u'2013'))
-        self.assertTrue(SchemaDataIndex.objects.has_match(u'Hello', u'dateModified', u'2013'))
+        self.assertTrue(SchemaDataIndex.has_match(u'Hello', u'author', u'AK'))
+        self.assertFalse(SchemaDataIndex.has_match(u'Hello', u'isbn', u'1234567890'))
+        self.assertTrue(SchemaDataIndex.has_match(u'Hello', u'isbn', u'1234567899'))
+        self.assertFalse(SchemaDataIndex.has_match(u'Hello', u'datePublished', u'2013'))
+        self.assertTrue(SchemaDataIndex.has_match(u'Hello', u'dateModified', u'2013'))
 
     def test_rebuild(self):
         page = self.update_page(u'.schema Book\n[[author::AK]]\n{{isbn::1234567890}}\n[[datePublished::2013]]', u'Hello')
         SchemaDataIndex.rebuild_index(page.title, page.data)
-        self.assertTrue(SchemaDataIndex.objects.has_match(u'Hello', u'author', u'AK'))
-        self.assertTrue(SchemaDataIndex.objects.has_match(u'Hello', u'isbn', u'1234567890'))
-        self.assertTrue(SchemaDataIndex.objects.has_match(u'Hello', u'datePublished', u'2013'))
+        self.assertTrue(SchemaDataIndex.has_match(u'Hello', u'author', u'AK'))
+        self.assertTrue(SchemaDataIndex.has_match(u'Hello', u'isbn', u'1234567890'))
+        self.assertTrue(SchemaDataIndex.has_match(u'Hello', u'datePublished', u'2013'))
+
+    def test_should_not_index_for_longtext(self):
+        self.update_page(u'longDescription::---\n\nHello there', u'Hello')
+        self.assertFalse(SchemaDataIndex.has_match(u'Hello', u'longDescription', u'Hello there'))
 
 
 class TypeConversionTest(WikiTestCase):
@@ -354,6 +484,11 @@ class TypeConversionTest(WikiTestCase):
         data = schema.SchemaConverter.convert(u'Code', {u'codeRepository': u'See http://github.org'})['codeRepository']
         self.assertEqual(schema.InvalidProperty, type(data))
 
+    def test_embeddable_url(self):
+        data = schema.SchemaConverter.convert(u'Thing', {u'image': u'http://x.com/a.png'})
+        self.assertEqual(u'http://x.com/a.png', data['image'].value)
+        self.assertEqual(schema.EmbeddableURLProperty, type(data['image']))
+
     def test_thing(self):
         data = schema.SchemaConverter.convert(u'Code', {u'programmingLanguage': u'JavaScript'})
         self.assertEqual('JavaScript', data['programmingLanguage'].value)
@@ -390,3 +525,82 @@ class ConversionPriorityTest(WikiTestCase):
 
         prop = schema.SchemaConverter.convert(u'SoftwareApplication', {u'featureList': u'See http://x.com'})['featureList']
         self.assertEqual(schema.TextProperty, type(prop))
+
+
+class SchemaChangeTest(WikiTestCase):
+    def setUp(self):
+        super(SchemaChangeTest, self).setUp()
+        caching.flush_all()
+
+    def tearDown(self):
+        schema.SCHEMA_TO_LOAD = schema.SCHEMA_TO_LOAD[:-1]
+        super(SchemaChangeTest, self).tearDown()
+
+    def test_change_schema_after_writing_and_try_to_read(self):
+        self.update_page(u'Hello there?', u'Hello')
+
+        caching.flush_all()
+        schema.SCHEMA_TO_LOAD.append({
+            "properties": {
+                "author": {
+                    "cardinality": [1, 1]
+                }
+            }
+        })
+
+        page = WikiPage.get_by_title(u'Hello')
+        page.rendered_body
+
+    def test_change_schema_after_writing_and_try_to_update(self):
+        self.update_page(u'Hello there?', u'Hello')
+
+        caching.flush_all()
+        schema.SCHEMA_TO_LOAD.append({
+            "properties": {
+                "author": {
+                    "cardinality": [1, 1]
+                }
+            }
+        })
+
+        self.update_page(u'.schema Book\n\n    #!yaml/schema\n    author: "Alan Kang"\n\nHello there?\n', u'Hello')
+
+
+class MiscTest(WikiTestCase):
+    def setUp(self):
+        super(MiscTest, self).setUp()
+        caching.flush_all()
+
+    def test_should_not_allow_legacy_spells(self):
+        self.assertRaises(KeyError, schema.get_property, 'contactPoints')
+        self.assertTrue('awards' not in schema.get_schema('Person')['properties'])
+
+    def test_get_datatype(self):
+        self.assertEqual('Boolean', schema.get_datatype('Boolean')['label'])
+
+    def test_get_custom_datatype(self):
+        isbn = schema.get_datatype('ISBN')
+        self.assertEqual(['DataType'], isbn['ancestors'])
+
+    def test_get_itemtypes(self):
+        itemtypes = schema.get_itemtypes()
+        self.assertEqual(list, type(itemtypes))
+        self.assertEqual(('APIReference', 'API Reference'), itemtypes[0])
+        self.assertEqual(('Zoo', 'Zoo'), itemtypes[-1])
+
+    def test_properties_should_contain_all_specific_properties(self):
+        for t, _ in schema.get_itemtypes():
+            item = schema.get_schema(t)
+            self.assertEqual(set(), set(item['specific_properties']).difference(item['properties']))
+
+    def test_properties_order_should_follow_that_of_source(self):
+        article = schema.get_schema('Article')
+        self.assertEqual('about', article['properties'][0])
+        self.assertEqual('wordCount', article['properties'][-1])
+
+    def test_self_contained_schema(self):
+        s = schema.get_schema('Person', True)
+        url = s['properties']['url']
+        self.assertEqual(dict, type(url))
+        self.assertEqual([0, 0], url['cardinality'])
+        self.assertEqual(['URL'], url['type']['ranges'])
