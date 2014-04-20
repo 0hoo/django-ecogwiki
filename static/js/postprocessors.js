@@ -32,9 +32,9 @@ var postprocessors = (function($) {
         },
         dependencies: function() {
             return [
-                '/statics/css/vendor/reveal.css',
-                '/statics/css/vendor/reveal-theme-simple.css',
-                '/statics/js/reveal.js'
+                '/static/css/vendor/reveal.css',
+                '/static/css/vendor/reveal-theme-simple.css',
+                '/static/js/reveal.js'
             ];
         },
         run: function() {
@@ -118,7 +118,7 @@ var postprocessors = (function($) {
             return this.hasHashbang('dot') || this.hasHashbang('dot/s');
         },
         dependencies: function() {
-            return ['/statics/js/viz.js'];
+            return ['/static/js/viz.js'];
         },
         run: function() {
             this.processInlineElements();
@@ -185,9 +185,9 @@ var postprocessors = (function($) {
         },
         dependencies: function() {
             return [
-                '/statics/css/vendor/jumly.css',
-                '/statics/js/coffee-script.js',
-                '/statics/js/jumly.min.js'
+                '/static/css/vendor/jumly.css',
+                '/static/js/coffee-script.js',
+                '/static/js/jumly.min.js'
             ];
         },
         run: function() {

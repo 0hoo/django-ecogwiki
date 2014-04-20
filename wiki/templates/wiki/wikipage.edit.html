@@ -152,7 +152,7 @@
     </script>
 
     {% if user and config.service.google_oauth2_web_client_id %}
-    <script type="text/javascript" src="/statics/js/upload.js?ver={{ app.version }}"></script>
+    <script type="text/javascript" src="/static/js/upload.js?ver={{ app.version }}"></script>
     <script type="text/javascript">
     function _gapiLoaded() {
         gapi.client.load('drive', 'v2', function() {
