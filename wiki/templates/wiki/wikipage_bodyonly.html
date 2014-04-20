@@ -2,15 +2,17 @@
 <head><meta charset="utf-8"><title>{{ page.title }}</title></head>
 <body><div class="wrap">
 
+{% autoescape off %}
 {{ page.rendered_body }}
+{% endautoescape %}
 
 <div style="display: none">
     <div class="ecogwiki-version">{{ app.version }}</div>
     <ul class="page-metadata">
-        {% for md in page.metadata %}
-        <li class="key-{{ md }}" data-value="{{ page.metadata[md] }}">
+        {% for md, value in page.metadata.items %}
+        <li class="key-{{ md }}" data-value="{{ value }}">
             <span class="key">{{ md }}</span>
-            <span class="value">{{ page.metadata[md] }}</span>
+            <span class="value">{{ value }}</span>
         </li>
         {% endfor %}
     </ul>

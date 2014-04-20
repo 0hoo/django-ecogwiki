@@ -327,7 +327,10 @@ class PageOperationMixin(object):
 
     @classmethod
     def path_to_title(cls, path):
-        return urllib2.unquote(path).decode('utf-8').replace('_', ' ')
+        try:
+            return urllib2.unquote(path).decode('utf-8').replace('_', ' ')
+        except:
+            return urllib2.unquote(path).replace('_', ' ')
 
     @classmethod
     def parse_schema_yaml(cls, body):

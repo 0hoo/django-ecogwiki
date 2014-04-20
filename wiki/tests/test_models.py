@@ -422,11 +422,11 @@ class LinkTest(WikiTestCase):
         self.assertEqual({}, page.outlinks)
 
     def test_links(self):
-        a = self.update_page(u'[[B]]', u'A')
+        a = self.update_page(u'[[B한글]]', u'A')
         self.assertEqual({}, a.inlinks)
-        self.assertEqual({u'Article/relatedTo': [u'B']}, a.outlinks)
+        self.assertEqual({u'Article/relatedTo': [u'B한글']}, a.outlinks)
 
-        b = WikiPage.get_by_title(u'B')
+        b = WikiPage.get_by_title(u'B한글')
         self.assertEqual(None, b.updated_at)
         self.assertEqual({u'Article/relatedTo': [u'A']}, b.inlinks)
         self.assertEqual({}, b.outlinks)

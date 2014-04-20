@@ -204,8 +204,9 @@ class PageResource(PageLikeResource):
         partial = self.req.GET.get('partial', 'all')
 
         if preview == '1':
-            self.res.headers['Content-Type'] = 'text/html; charset=utf-8'
+            self.res['Content-Type'] = 'text/html; charset=utf-8'
             page = page.get_preview_instance(new_body)
+            print page.rendered_body
             html = template(self.req, 'wikipage_bodyonly.html', {
                 'page': page,
             })
@@ -217,7 +218,7 @@ class PageResource(PageLikeResource):
             self.res['X-Message'] = 'Successfully updated.'
 
             if partial == 'all':
-                quoted_path = urllib2.quote(self.path.replace(' ', '_'))
+                quoted_path = urllib2.quote(self.path.encode('utf8').replace(' ', '_'))
                 restype = get_restype(self.req, 'html')
                 if restype == 'html':
                     self.res = HttpResponseRedirect(str('/' + quoted_path))
@@ -233,7 +234,7 @@ class PageResource(PageLikeResource):
         except ConflictError as e:
             html = template(self.req, 'wikipage.edit.html', {'page': page, 'conflict': e})
             self.res.status = 409
-            self.res.headers['Content-Type'] = 'text/html; charset=utf-8'
+            self.res['Content-Type'] = 'text/html; charset=utf-8'
             self.res.write(html)
             return self.res
         except ValueError as e:

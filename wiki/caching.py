@@ -1,6 +1,28 @@
 import urllib
 from django.core.cache import cache
 
+
+def _set_cache(key, value, exp_sec=None):
+    if type(key) is str or type(key) is unicode:
+        cache.set(urllib.quote(key.encode('utf8')), value)
+    else:
+        cache.set(key, value)
+
+
+def _get_cache(key):
+    if type(key) is str or type(key) is unicode:
+        return cache.get(urllib.quote(key.encode('utf8')))
+    else:
+        return cache.get(key)
+
+
+def _del_cache(key):
+    if type(key) is str or type(key) is unicode:
+        cache.delete(urllib.quote(key.encode('utf8')))
+    else:
+        cache.delete(key)
+
+
 max_recent_users = 20
 
 
@@ -18,7 +40,7 @@ def add_recent_email(email):
 def get_recent_emails():
     key = 'view:recentemails'
     try:
-        emails = cache.get(key)
+        emails = _get_cache(key)
         if emails is None:
             cache.clear()
             emails = []
@@ -26,12 +48,9 @@ def get_recent_emails():
     except:
         return []
 
-def _set_cache(key, value, exp_sec=None):
-    cache.set(key, value)
-
 
 def get_schema_set():
-    return cache.get('schema_set')
+    return _get_cache('schema_set')
 
 
 def set_schema_set(value):
@@ -39,7 +58,7 @@ def set_schema_set(value):
 
 
 def get_schema(key):
-    return cache.get('schema:%s' % key)
+    return _get_cache('schema:%s' % key)
 
 
 def set_schema(key, value):
@@ -47,7 +66,7 @@ def set_schema(key, value):
 
 
 def get_schema_itemtypes():
-    return cache.get('schema:itemtypes')
+    return _get_cache('schema:itemtypes')
 
 
 def set_schema_itemtypes(value):
@@ -55,69 +74,69 @@ def set_schema_itemtypes(value):
 
 
 def get_schema_datatype(type_name):
-    return cache.get('schema:datatype:%s' % urllib.quote(type_name))
+    return _get_cache('schema:datatype:%s' % type_name)
 
 
 def set_schema_datatype(type_name, prop):
-    _set_cache('schema:datatype:%s' % urllib.quote(type_name), prop)
+    _set_cache('schema:datatype:%s' % type_name, prop)
 
 
 def get_schema_property(prop_name):
-    return cache.get('schema:prop:%s' % urllib.quote(prop_name))
+    return _get_cache('schema:prop:%s' % prop_name)
 
 
 def set_schema_property(prop_name, prop):
-    _set_cache('schema:prop:%s' % urllib.quote(prop_name), prop)
+    _set_cache('schema:prop:%s' % prop_name, prop)
 
 
 def get_hashbangs(title):
-    cache.get('model:hashbangs:%s' % urllib.quote(title))
+    _get_cache('model:hashbangs:%s' % title)
 
 
 def set_hashbangs(title, value):
-    _set_cache('model:hashbangs:%s' % urllib.quote(title), value)
+    _set_cache('model:hashbangs:%s' % title, value)
 
 
 def get_rendered_body(title):
-    return cache.get('model:rendered_body:%s' % urllib.quote(title))
+    return _get_cache('model:rendered_body:%s' % title)
 
 
 def set_rendered_body(title, value):
     if not value:
         return
-    _set_cache('model:rendered_body:%s' % urllib.quote(title), value)
+    _set_cache('model:rendered_body:%s' % title, value)
 
 
 def get_data(title):
-    return cache.get('model:data:%s' % urllib.quote(title))
+    return _get_cache('model:data:%s' % title)
 
 
 def set_data(title, value):
-    _set_cache('model:data:%s' % urllib.quote(title), value)
+    _set_cache('model:data:%s' % title, value)
 
 
 def get_metadata(title):
-    return cache.get('model:metadata:%s' % urllib.quote(title))
+    return _get_cache('model:metadata:%s' % title)
 
 
 def set_metadata(title, value):
-    _set_cache('model:metadata:%s' % urllib.quote(title), value)
+    _set_cache('model:metadata:%s' % title, value)
 
 
 def del_rendered_body(title):
-    cache.delete('model:rendered_body:%s' % urllib.quote(title))
+    _del_cache('model:rendered_body:%s' % title)
 
 
 def del_data(title):
-    cache.delete('model:data:%s' % urllib.quote(title))
+    _del_cache('model:data:%s' % title)
 
 
 def del_metadata(title):
-    cache.delete('model:metadata:%s' % urllib.quote(title))
+    _del_cache('model:metadata:%s' % title)
 
 
 def del_hashbangs(title):
-    cache.delete('model:hashbangs:%s' % urllib.quote(title))
+    _del_cache('model:hashbangs:%s' % title)
 
 
 def set_titles(email, content):
@@ -130,7 +149,7 @@ def set_titles(email, content):
 
 def get_titles(email):
     try:
-        return cache.get('model:titles:%s' % email)
+        return _get_cache('model:titles:%s' % email)
     except:
         pass
 
@@ -149,25 +168,25 @@ def set_schema_selectable_itemtypes(value):
 
 
 def get_schema_selectable_itemtypes():
-    return cache.get('schema:selectable_itemtypes')
+    return _get_cache('schema:selectable_itemtypes')
 
 
 def set_cardinalities(key, data):
     try:
-        return _set_cache('schema:cardinalities:%s' % urllib.quote(key), data)
+        return _set_cache('schema:cardinalities:%s' % key, data)
     except:
         pass
 
 
 def get_cardinalities(key):
     try:
-        return cache.get('schema:cardinalities:%s' % urllib.quote(key))
+        return _get_cache('schema:cardinalities:%s' % key)
     except:
         pass
 
 
 def get_config():
-    return cache.get('model:config')
+    return _get_cache('model:config')
 
 
 def set_config(value):
@@ -195,7 +214,7 @@ def set_wikiquery(q, email, value):
 
 
 def get_wikiquery(q, email):
-    return cache.get('model:wikiquery:%s:%s' % (urllib.quote(q), email))
+    return _get_cache('model:wikiquery:%s:%s' % (urllib.quote(q), email))
 
 
 def flush_all():

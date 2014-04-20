@@ -145,9 +145,9 @@ class WikiPage(models.Model, PageOperationMixin):
     older_title = models.CharField(max_length=255, null=True)
     newer_title = models.CharField(max_length=255, null=True)
 
-    _inlinks = JSONField()
-    _outlinks = JSONField()
-    _related_links = JSONField()
+    _inlinks = JSONField(default={})
+    _outlinks = JSONField(default={})
+    _related_links = JSONField(default={})
 
     def __str__(self):
         return self.title
@@ -162,6 +162,7 @@ class WikiPage(models.Model, PageOperationMixin):
         if value is None:
             value = super(WikiPage, self).rendered_body
             caching.set_rendered_body(self.title, value)
+        print value
         return value
 
     @property
@@ -231,6 +232,7 @@ class WikiPage(models.Model, PageOperationMixin):
         page.related_links = self.related_links
         page.older_title = self.older_title
         page.newer_title = self.newer_title
+        page.updated_at = self.updated_at
 
         return page
 
