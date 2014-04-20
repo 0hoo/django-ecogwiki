@@ -16,7 +16,7 @@ ul, ol {
   padding-left: 2em; }
 
 a {
-  color: #447;
+  color: #ab5603;
   text-decoration: none;
   padding-bottom: 1px;
   border-bottom: 1px solid #ddddee; }
@@ -135,12 +135,12 @@ div.contents {
 .top-bar {
   padding: 0.3em 1em;
   list-style-type: none;
-  background-color: #000;
+  background-color: #092e20;
   color: #CCC;
   box-shadow: 0 3px 3px rgba(0, 0, 0, 0.1); }
 
 .top-bar a {
-  color: #CCC;
+  color: #ffc757;
   border-bottom-color: #000; }
 
 .top-bar a:hover {
