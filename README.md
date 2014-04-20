@@ -1,5 +1,9 @@
 # Install
 
+## Mac OS X (for pip install lxml)
+export CFLAGS=-Qunused-arguments
+export CPPFLAGS=-Qunused-arguments
+
 
 # How to use
 
