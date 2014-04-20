@@ -8,6 +8,7 @@ from collections import OrderedDict
 import markdown
 from yaml.parser import ParserError
 from lxml.html.clean import Cleaner
+
 from markdown.extensions.def_list import DefListExtension
 from markdown.extensions.attr_list import AttrListExtension
 from markdownext import md_url, md_wikilink, md_itemprop, md_mathjax, md_strikethrough, md_tables, md_partials, \
@@ -66,6 +67,53 @@ class PageOperationMixin(object):
     def set_cur_user(self, user):
         self.cur_user = user
 
+    @property
+    def rendered_data(self):
+        try:
+            data = self.data
+        except ValueError:
+            data = {}
+
+        data = [
+            (n, v, schema.humane_property(self.itemtype, n))
+            for n, v in data.items()
+            if (n not in ['schema', 'name', 'datePageModified']) and (not isinstance(v, schema.Property) or v.ptype != 'LongText')
+        ]
+
+        if len(data) == 0:
+            return ''
+
+        html = [
+            u'<div class="structured-data">',
+            u'<h1>Structured data</h1>',
+            u'<dl>',
+        ]
+
+        data = sorted(data, key=operator.itemgetter(2))
+
+        render_data_item = lambda itemname, itemvalue: u'<dd class="value value-%s"><span itemprop="%s">%s</span></dd>' % (itemname, itemname, itemvalue.render())
+        for name, value, humane_name in data:
+            html.append(u'<dt class="key key-%s">%s</dt>' % (name, humane_name))
+            if type(value) == list:
+                html += [render_data_item(name, v) for v in value]
+            else:
+                html.append(render_data_item(name, value))
+        html.append(u'</dl></div>')
+        return '\n'.join(html)
+
+    @property
+    def rendered_body(self):
+        return PageOperationMixin.render_body(
+            self.title, self.body, self.rendered_data, self.inlinks, self.related_links_by_score)
+
+    @property
+    def paths(self):
+        abs_path = []
+        result = []
+        for token in self.title.split(u'/'):
+            abs_path.append(token)
+            result.append((u'/'.join(abs_path), token))
+        return result
 
     @property
     def absolute_url(self):
@@ -80,32 +128,42 @@ class PageOperationMixin(object):
         return u'/%s?rev=list' % PageOperationMixin.title_to_path(self.title)
 
     @property
-    def modifier_type(self):
-        if self.modifier is None:
-            return 'anonymous'
-
-        if self.cur_user is None:
-            return 'other'
-        elif self.cur_user.email == self.modifier.email:
-            return 'self'
-        else:
-            return 'other'
+    def data(self):
+        data = PageOperationMixin.parse_data(self.title, self.body, self.itemtype)
+        data['datePageModified'] = schema.DateTimeProperty(self.itemtype, 'DateTime', 'datePageModified', self.updated_at)
+        return data
 
     @property
-    def hashbangs(self):
-        return PageOperationMixin.extract_hashbangs(self.rendered_body)
+    def rawdata(self):
+        return dict((k, self._get_raw_data_value(v)) for k, v in self.data.items())
 
+    @property
+    def metadata(self):
+        return PageOperationMixin.parse_metadata(self.body)
 
-    @staticmethod
-    def extract_hashbangs(html):
-        matches = re.findall(ur'<code>#!(.+?)[\n;]', html)
-        if re.match(ur'.*(\\\(.+\\\)|\$\$.+\$\$)', html, re.DOTALL):
-            matches.append('mathjax')
-        return matches
+    @property
+    def itemtype(self):
+        if 'schema' in self.metadata:
+            return self.metadata['schema']
+        else:
+            return u'Article'
 
-    @classmethod
-    def path_to_title(cls, path):
-        return urllib2.unquote(path).decode('utf-8').replace('_', ' ')
+    @property
+    def itemtype_url(self):
+        return 'http://schema.org/%s' % self.itemtype
+
+    @property
+    def related_links_by_score(self):
+        sorted_tuples = sorted(self.related_links.iteritems(),
+                               key=operator.itemgetter(1),
+                               reverse=True)
+        return OrderedDict(sorted_tuples)
+
+    @property
+    def related_links_by_title(self):
+        sorted_tuples = sorted(self.related_links.iteritems(),
+                               key=operator.itemgetter(0))
+        return OrderedDict(sorted_tuples)
 
     @property
     def special_sections(self):
@@ -118,11 +176,43 @@ class PageOperationMixin(object):
 
         return ss
 
-    def _check_special_titles_years(self):
-        return (
-            self.title != '0' and
-            re.match(PageOperationMixin.re_special_titles_years, self.title)
-        )
+    @property
+    def hashbangs(self):
+        return PageOperationMixin.extract_hashbangs(self.rendered_body)
+
+    @property
+    def modifier_type(self):
+        if self.modifier is None:
+            return 'anonymous'
+
+        if self.cur_user is None:
+            return 'other'
+        elif self.cur_user.email == self.modifier.email:
+            return 'self'
+        else:
+            return 'other'
+
+    @property
+    def last_path_token(self):
+        return self.paths[-1][1]
+
+    @property
+    def paths_except_last(self):
+        return self.paths[:-1]
+
+    def can_read(self, user, default_acl=None, acl_r=None, acl_w=None):
+        return acl.ACL(default_acl, self.acl_read, self.acl_write).can_read(user, acl_r, acl_w)
+
+    def can_write(self, user, default_acl=None, acl_r=None, acl_w=None):
+        return acl.ACL(default_acl, self.acl_read, self.acl_write).can_write(user, acl_r, acl_w)
+
+    def _get_raw_data_value(self, value):
+        if type(value) == list:
+            return [self._get_raw_data_value(v) for v in value]
+        elif isinstance(value, schema.Property):
+            return value.pvalue
+        else:
+            return value
 
     def _check_special_titles_dates(self):
         return (
@@ -151,6 +241,12 @@ class PageOperationMixin(object):
         ss[u'cur_year'] = str(cur_year)
         return ss
 
+    def _check_special_titles_years(self):
+        return (
+            self.title != '0' and
+            re.match(PageOperationMixin.re_special_titles_years, self.title)
+        )
+
     def _special_titles_dates(self):
         ss = {}
 
@@ -176,44 +272,84 @@ class PageOperationMixin(object):
         ss[u'dates'] = range(1, max_date + 1)
         return ss
 
-    @property
-    def metadata(self):
-        return PageOperationMixin.parse_metadata(self.body)
+    @staticmethod
+    def make_description(body, max_length=200):
+        # remove yaml/schema block and metadata
+        body = re.sub(PageOperationMixin.re_yaml_schema, u'\n', body)
+        body = PageOperationMixin.remove_metadata(body).strip()
+
+        # try newline
+        index = body.find(u'\n')
+        if index != -1:
+            body = body[:index].strip()
+
+        # try period
+        index = 0
+        while index < max_length:
+            next_index = body.find(u'. ', index)
+            if next_index == -1:
+                break
+            index = next_index + 1
+
+        if index > 3:
+            return body[:index].strip()
+
+        if len(body) <= max_length:
+            return body
+
+        # just cut-off
+        return body[:max_length - 3].strip() + u'...'
+
+    @staticmethod
+    def sanitize_html(rendered):
+        if rendered:
+            cleaner = Cleaner(safe_attrs_only=False)
+            cleaner.host_whitelist = (
+                'www.youtube.com',
+                'player.vimeo.com',
+                'embed.ted.com',
+                'prezi.com',
+                'www.google.com',
+                'www.slideshare.net',
+                'maps.google.com'
+            )
+            cleaner.forms = False
+            rendered = cleaner.clean_html(rendered)
+
+            # remove div wrapper if there is one
+            if rendered.startswith('<div>'):
+                rendered = rendered[5:-6]
+        return rendered
+
+    @staticmethod
+    def title_to_path(path):
+        return urllib2.quote(path.replace(u' ', u'_').encode('utf-8'))
 
     @classmethod
-    def parse_metadata(cls, body):
-        # extract lines
-        matches = []
-        for line in body.split(u'\n'):
-            m = re.match(cls.re_metadata, line.strip())
-            if m:
-                matches.append(m)
-            else:
-                break
-        # default values
-        metadata = {
-            'content-type': 'text/x-markdown',
-            'schema': 'Article',
-        }
+    def path_to_title(cls, path):
+        return urllib2.unquote(path).decode('utf-8').replace('_', ' ')
+
+    @classmethod
+    def parse_schema_yaml(cls, body):
+        data = {}
+
+        # extract yaml
+        m = re.search(cls.re_yaml_schema, body)
+        if not m:
+            return data
 
         # parse
-        for m in matches:
-            key = m.group(1).strip()
-            value = m.group(3)
-            metadata[key] = value.strip() if value else None
+        try:
+            captured = m.group(1).replace('\t', '    ')
+            parsed = yaml.load(captured)
+        except ParserError as e:
+            raise ValueError(e.message or u'invalid YAML format:<pre>%s</pre>' % m.group(0))
 
-        # validate
-        if u'pub' in metadata and u'redirect' in metadata:
-            raise ValueError('You cannot use "pub" and "redirect" metadata at '
-                             'the same time.')
-        if u'redirect' in metadata and len(PageOperationMixin.remove_metadata(body).strip()) != 0:
-            raise ValueError('Page with "redirect" metadata cannot have a body '
-                             'content.')
-        if u'read' in metadata and metadata['content-type'] != 'text/x-markdown':
-            raise ValueError('You cannot restrict read access of custom content-typed page.')
+        # check if it's dict
+        if type(parsed) != dict:
+            raise ValueError('YAML must be a dictionary')
 
-        # done
-        return metadata
+        return parsed
 
     @classmethod
     def parse_data(cls, title, body, itemtype=u'Article'):
@@ -279,87 +415,40 @@ class PageOperationMixin(object):
 
         return sections
 
-
-    @property
-    def data(self):
-        data = PageOperationMixin.parse_data(self.title, self.body, self.itemtype)
-        data['datePageModified'] = schema.DateTimeProperty(self.itemtype, 'DateTime', 'datePageModified', self.updated_at)
-        return data
-
-    @property
-    def rawdata(self):
-        return dict((k, self._get_raw_data_value(v)) for k, v in self.data.items())
-
     @classmethod
-    def parse_schema_yaml(cls, body):
-        data = {}
-
-        # extract yaml
-        m = re.search(cls.re_yaml_schema, body)
-        if not m:
-            return data
+    def parse_metadata(cls, body):
+        # extract lines
+        matches = []
+        for line in body.split(u'\n'):
+            m = re.match(cls.re_metadata, line.strip())
+            if m:
+                matches.append(m)
+            else:
+                break
+        # default values
+        metadata = {
+            'content-type': 'text/x-markdown',
+            'schema': 'Article',
+        }
 
         # parse
-        try:
-            captured = m.group(1).replace('\t', '    ')
-            parsed = yaml.load(captured)
-        except ParserError as e:
-            raise ValueError(e.message or u'invalid YAML format:<pre>%s</pre>' % m.group(0))
+        for m in matches:
+            key = m.group(1).strip()
+            value = m.group(3)
+            metadata[key] = value.strip() if value else None
 
-        # check if it's dict
-        if type(parsed) != dict:
-            raise ValueError('YAML must be a dictionary')
+        # validate
+        if u'pub' in metadata and u'redirect' in metadata:
+            raise ValueError('You cannot use "pub" and "redirect" metadata at '
+                             'the same time.')
+        if u'redirect' in metadata and len(PageOperationMixin.remove_metadata(body).strip()) != 0:
+            raise ValueError('Page with "redirect" metadata cannot have a body '
+                             'content.')
+        if u'read' in metadata and metadata['content-type'] != 'text/x-markdown':
+            raise ValueError('You cannot restrict read access of custom content-typed page.')
 
-        return parsed
-
-    @staticmethod
-    def title_to_path(path):
-        return urllib2.quote(path.replace(u' ', u'_').encode('utf-8'))
-
-    @property
-    def paths(self):
-        abs_path = []
-        result = []
-        for token in self.title.split(u'/'):
-            abs_path.append(token)
-            result.append((u'/'.join(abs_path), token))
-        return result
-
-    @property
-    def last_path_token(self):
-        return self.paths[-1][1]
-
-    @property
-    def paths_except_last(self):
-        return self.paths[:-1]
-
-    @staticmethod
-    def make_description(body, max_length=200):
-        # remove yaml/schema block and metadata
-        body = re.sub(PageOperationMixin.re_yaml_schema, u'\n', body)
-        body = PageOperationMixin.remove_metadata(body).strip()
-
-        # try newline
-        index = body.find(u'\n')
-        if index != -1:
-            body = body[:index].strip()
-
-        # try period
-        index = 0
-        while index < max_length:
-            next_index = body.find(u'. ', index)
-            if next_index == -1:
-                break
-            index = next_index + 1
-
-        if index > 3:
-            return body[:index].strip()
-
-        if len(body) <= max_length:
-            return body
-
-        # just cut-off
-        return body[:max_length - 3].strip() + u'...'
+        # done
+        return metadata
 
     @staticmethod
     def remove_metadata(body):
@@ -375,45 +464,12 @@ class PageOperationMixin(object):
         rest += list(lines)
         return u'\n'.join(rest)
 
-
-    @property
-    def rendered_data(self):
-        try:
-            data = self.data
-        except ValueError:
-            data = {}
-
-        data = [
-            (n, v, schema.humane_property(self.itemtype, n))
-            for n, v in data.items()
-            if (n not in ['schema', 'name', 'datePageModified']) and (not isinstance(v, schema.Property) or v.ptype != 'LongText')
-        ]
-
-        if len(data) == 0:
-            return ''
-
-        html = [
-            u'<div class="structured-data">',
-            u'<h1>Structured data</h1>',
-            u'<dl>',
-        ]
-
-        data = sorted(data, key=operator.itemgetter(2))
-
-        render_data_item = lambda itemname, itemvalue: u'<dd class="value value-%s"><span itemprop="%s">%s</span></dd>' % (itemname, itemname, itemvalue.render())
-        for name, value, humane_name in data:
-            html.append(u'<dt class="key key-%s">%s</dt>' % (name, humane_name))
-            if type(value) == list:
-                html += [render_data_item(name, v) for v in value]
-            else:
-                html.append(render_data_item(name, value))
-        html.append(u'</dl></div>')
-        return '\n'.join(html)
-
-    @property
-    def rendered_body(self):
-        return PageOperationMixin.render_body(
-            self.title, self.body, self.rendered_data, self.inlinks, self.related_links_by_score)
+    @staticmethod
+    def extract_hashbangs(html):
+        matches = re.findall(ur'<code>#!(.+?)[\n;]', html)
+        if re.match(ur'.*(\\\(.+\\\)|\$\$.+\$\$)', html, re.DOTALL):
+            matches.append('mathjax')
+        return matches
 
     @classmethod
     def render_body(cls, title, body, rendered_data='', inlinks={}, related_links_by_score={}, older_title=None, newer_title=None):
@@ -467,62 +523,3 @@ class PageOperationMixin(object):
         # add structured data block
         rendered = rendered_data + rendered
         return cls.sanitize_html(rendered)
-
-    @staticmethod
-    def sanitize_html(rendered):
-        if rendered:
-            cleaner = Cleaner(safe_attrs_only=False)
-            cleaner.host_whitelist = (
-                'www.youtube.com',
-                'player.vimeo.com',
-                'embed.ted.com',
-                'prezi.com',
-                'www.google.com',
-                'www.slideshare.net',
-                'maps.google.com'
-            )
-            cleaner.forms = False
-            rendered = cleaner.clean_html(rendered)
-
-            # remove div wrapper if there is one
-            if rendered.startswith('<div>'):
-                rendered = rendered[5:-6]
-        return rendered
-
-    @property
-    def itemtype(self):
-        if 'schema' in self.metadata:
-            return self.metadata['schema']
-        else:
-            return u'Article'
-
-    @property
-    def related_links_by_score(self):
-        sorted_tuples = sorted(self.related_links.iteritems(),
-                               key=operator.itemgetter(1),
-                               reverse=True)
-        return OrderedDict(sorted_tuples)
-
-    @property
-    def related_links_by_title(self):
-        sorted_tuples = sorted(self.related_links.iteritems(),
-                               key=operator.itemgetter(0))
-        return OrderedDict(sorted_tuples)
-
-    @property
-    def itemtype_url(self):
-        return 'http://schema.org/%s' % self.itemtype
-
-    def can_read(self, user, default_acl=None, acl_r=None, acl_w=None):
-        return acl.ACL(default_acl, self.acl_read, self.acl_write).can_read(user, acl_r, acl_w)
-
-    def can_write(self, user, default_acl=None, acl_r=None, acl_w=None):
-        return acl.ACL(default_acl, self.acl_read, self.acl_write).can_write(user, acl_r, acl_w)
-
-    def _get_raw_data_value(self, value):
-        if type(value) == list:
-            return [self._get_raw_data_value(v) for v in value]
-        elif isinstance(value, schema.Property):
-            return value.pvalue
-        else:
-            return value
