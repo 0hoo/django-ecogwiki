@@ -251,7 +251,7 @@ class PageResource(PageLikeResource):
     def delete(self):
         page = self.load()
         try:
-            page.delete()
+            page.delete(self.req.user)
             self.res.status_code = 204
         except RuntimeError as e:
             self.res.status_code = 403
