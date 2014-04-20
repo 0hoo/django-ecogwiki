@@ -446,8 +446,44 @@ class WikiPage(models.Model, PageOperationMixin):
 
         if partial == 'all':
             return self._update_content_all(content, base_revision, comment, user, force_update, dont_create_rev)
+        elif partial.startswith('checkbox'):
+            return self._update_content_checkbox(content, base_revision, comment, user, force_update, dont_create_rev, partial)
+        elif partial.startswith('log'):
+            return self._update_content_log(content, base_revision, comment, user, force_update, dont_create_rev, partial)
         else:
             raise ValueError('Invalid partial expression: %s' % partial)
+
+    def _update_content_checkbox(self, content, base_revision, comment, user, force_update, dont_create_rev, exp):
+        cur_index = {'value': -1}
+        index = int(re.match(ur'checkbox\[(\d+)]', exp).group(1))
+
+        def replacer(m):
+            # skip until find matching index
+            cur_index['value'] += 1
+            if cur_index['value'] != index:
+                return m.group(0)
+
+            # replace
+            return u'[x]' if content == u'1' else u'[ ]'
+
+        new_body = re.sub(ur'\[(\s|x)]', replacer, self.body)
+        return self._update_content_all(new_body, base_revision, comment, user, force_update, dont_create_rev)
+
+    def _update_content_log(self, content, base_revision, comment, user, force_update, dont_create_rev, exp):
+        cur_index = {'value': -1}
+        index = int(re.match(ur'log\[(\d+)]', exp).group(1))
+
+        def replacer(m):
+            # skip until find matching index
+            cur_index['value'] += 1
+            if cur_index['value'] != index:
+                return m.group(0)
+
+            # replace
+            return m.group(1) + content + m.group(3) + '\n' + m.group(0)
+
+        new_body = re.sub(ur'(.*)(\[__])(.*)', replacer, self.body)
+        return self._update_content_all(new_body, base_revision, comment, user, force_update, dont_create_rev)
 
     def _update_content_all(self, body, base_revision, comment, user, force_update, dont_create_rev):
         # do not update if the body is not changed
