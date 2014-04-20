@@ -71,7 +71,7 @@
         <input type="submit" value="Save" class="btn btn-primary">
         <input type="button" value="Preview" class="btn btn-preview">
 
-        {% if users.is_superuser %}
+        {% if user.is_superuser %}
         <input type="button" value="Delete" class="btn btn-delete">
         {% endif %}
     </div>
