@@ -7,6 +7,7 @@ import schema
 from collections import OrderedDict
 import markdown
 from yaml.parser import ParserError
+from lxml.html.clean import Cleaner
 from markdown.extensions.def_list import DefListExtension
 from markdown.extensions.attr_list import AttrListExtension
 from markdownext import md_url, md_wikilink, md_itemprop, md_mathjax, md_strikethrough, md_tables, md_partials, \
@@ -465,8 +466,28 @@ class PageOperationMixin(object):
 
         # add structured data block
         rendered = rendered_data + rendered
+        return cls.sanitize_html(rendered)
+
+    @staticmethod
+    def sanitize_html(rendered):
+        if rendered:
+            cleaner = Cleaner(safe_attrs_only=False)
+            cleaner.host_whitelist = (
+                'www.youtube.com',
+                'player.vimeo.com',
+                'embed.ted.com',
+                'prezi.com',
+                'www.google.com',
+                'www.slideshare.net',
+                'maps.google.com'
+            )
+            cleaner.forms = False
+            rendered = cleaner.clean_html(rendered)
+
+            # remove div wrapper if there is one
+            if rendered.startswith('<div>'):
+                rendered = rendered[5:-6]
         return rendered
-        #return cls.sanitize_html(rendered)
 
     @property
     def itemtype(self):
