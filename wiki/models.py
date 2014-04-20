@@ -162,7 +162,6 @@ class WikiPage(models.Model, PageOperationMixin):
         if value is None:
             value = super(WikiPage, self).rendered_body
             caching.set_rendered_body(self.title, value)
-        print value
         return value
 
     @property

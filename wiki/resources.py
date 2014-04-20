@@ -206,7 +206,6 @@ class PageResource(PageLikeResource):
         if preview == '1':
             self.res['Content-Type'] = 'text/html; charset=utf-8'
             page = page.get_preview_instance(new_body)
-            print page.rendered_body
             html = template(self.req, 'wikipage_bodyonly.html', {
                 'page': page,
             })
