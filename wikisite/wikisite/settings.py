@@ -7,26 +7,17 @@ https://docs.djangoproject.com/en/1.6/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/1.6/ref/settings/
 """
-
-# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 import os
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.6/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'ud-#+4c%7y@!mt9umrt4^(p3v0o2e-m@qum@-y8e(_arljidjk'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
 TEMPLATE_DEBUG = True
 TEMPLATE_CONTEXT_PROCESSORS = (
     'django.contrib.auth.context_processors.auth',
 )
 ALLOWED_HOSTS = []
-
 
 # Application definition
 
@@ -104,10 +95,17 @@ CACHES = {
     }
 }
 
-if DEBUG:
-    EMAIL_HOST = 'smtp.gmail.com'
-    EMAIL_PORT = 587
-    EMAIL_HOST_USER = '@example.com'
-    EMAIL_HOST_PASSWORD = ''
-    EMAIL_USE_TLS = True
-    DEFAULT_FROM_EMAIL = '@example.com'
+DEBUG = True
+
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_HOST_USER = '@example.com'
+EMAIL_HOST_PASSWORD = ''
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = '@example.com'
+
+try:
+    from localsettings import *
+except ImportError:
+    print 'localsettings could not be imported'
+    pass

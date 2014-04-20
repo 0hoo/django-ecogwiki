@@ -6,5 +6,6 @@
 .idea/
 schema-custom.json
 npm-debug.log
+wikisite/localsettings.py
 node_modules
 env/
