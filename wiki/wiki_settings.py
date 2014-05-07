@@ -1,4 +1,4 @@
-VERSION = '0.0.1_20140407_0'
+VERSION = '0.0.1_20140407_1'
 
 DEFAULT_CONFIG = {
     'navigation': [

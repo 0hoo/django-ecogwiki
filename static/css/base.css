@@ -19,7 +19,7 @@ a {
   color: #ab5603;
   text-decoration: none;
   padding-bottom: 1px;
-  border-bottom: 1px solid #ddddee; }
+  border-bottom: 1px solid transparent; }
 
 a:hover {
   color: #46A;
@@ -141,7 +141,7 @@ div.contents {
 
 .top-bar a {
   color: #ffc757;
- }
+  border-bottom-color: transparent; }
 
 .top-bar a:hover {
   color: #FFF;
